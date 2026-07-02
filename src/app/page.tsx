@@ -1,65 +1,123 @@
-import Image from "next/image";
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Stage } from "../components/Stage";
+import { GAME_LIST, GAME_META } from "../lib/games";
+import { SCORED_GAMES } from "../lib/types";
+import { getTopToday } from "../lib/leaderboard";
+import { useMounted } from "../hooks/useMounted";
 
 export default function Home() {
+  const mounted = useMounted();
+  const [top, setTop] = useState<ReturnType<typeof getTopToday>>(null);
+  const [fs, setFs] = useState(false);
+
+  useEffect(() => {
+    setTop(getTopToday(SCORED_GAMES));
+  }, [mounted]);
+
+  useEffect(() => {
+    const onChange = () => setFs(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen?.();
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <Stage accent="#22d3ee">
+      <div className="flex h-full w-full flex-col">
+        {/* Topbar */}
+        <div className="flex items-center justify-between px-10 py-6">
+          <div className="flex items-center gap-3 text-[20px] font-bold">
+            <span className="grid h-[34px] w-[34px] place-items-center rounded-[9px] grad-fill font-extrabold not-italic text-[#04121a]">
+              i
+            </span>
+            <span>ITeC FreshStart</span>
+          </div>
+          <button
+            onClick={toggleFullscreen}
+            className="rounded-full border border-border bg-panel px-[18px] py-2 font-mono text-[13px] tracking-[1px] text-dim transition-colors hover:text-ink"
+          >
+            {fs ? "⤢ EXIT FULLSCREEN" : "⛶ ENTER FULLSCREEN"}
+          </button>
+        </div>
+
+        {/* Main */}
+        <div className="flex flex-1 flex-col px-[52px] pb-4">
+          <div className="mb-1 font-mono text-[14px] uppercase tracking-[3px] text-dim">
+            ITeC FreshStart booth
+          </div>
+          <h1 className="text-[54px] font-bold leading-[1.02]">
+            Play to win. <span className="grad">Tap a game</span> to start.
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-2 text-[19px] text-dim-2">
+            Six quick games. A prize for everyone, a grand prize for the top
+            score.
           </p>
+
+          {/* Tile grid */}
+          <div className="mt-6 grid grid-cols-3 grid-rows-2 gap-[18px]">
+            {GAME_LIST.map((g) => (
+              <Link
+                key={g.id}
+                href={`/play/${g.id}`}
+                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-panel p-6 transition-all hover:-translate-y-1"
+                style={{ minHeight: 148 }}
+              >
+                <span
+                  className="pointer-events-none absolute inset-x-0 top-0 h-[3px]"
+                  style={{
+                    background: `linear-gradient(90deg, ${g.accent}, #a3e635)`,
+                  }}
+                />
+                <div className="flex items-start justify-between">
+                  <span className="text-[40px]">{g.emoji}</span>
+                  {g.scored && (
+                    <span className="rounded-full border border-border px-3 py-1 font-mono text-[11px] tracking-[1px] text-dim">
+                      SCORED
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <div
+                    className="text-[24px] font-bold"
+                    style={{ color: g.accent }}
+                  >
+                    {g.title}
+                  </div>
+                  <div className="mt-1 text-[15px] leading-snug text-dim-2">
+                    {g.hook}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Today's Top teaser / footer */}
+        <div className="flex items-center justify-between border-t border-border px-10 py-4 font-mono text-[14px] tracking-[1px] text-dim">
+          <span>ITeC FreshStart booth game // local daily leaderboard</span>
+          <span>
+            {mounted && top ? (
+              <>
+                🏆 TODAY&apos;S TOP ·{" "}
+                <b className="text-ink">{top.entry.name}</b>{" "}
+                <span style={{ color: GAME_META[top.gameId].accent }}>
+                  {top.entry.score}
+                </span>{" "}
+                · {GAME_META[top.gameId].title}
+              </>
+            ) : (
+              <>🏆 TODAY&apos;S TOP · be the first to score</>
+            )}
+          </span>
         </div>
-      </main>
-    </div>
+      </div>
+    </Stage>
   );
 }

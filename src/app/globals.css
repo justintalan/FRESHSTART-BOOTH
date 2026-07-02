@@ -1,26 +1,143 @@
 @import "tailwindcss";
 
+/* ============================================================
+   ITeC FreshStart — design tokens (source of truth: design-reference/)
+   ============================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0a0e17;
+  --bg-deep: #070a12;
+  --ink: #e8edf7;
+  --ink-soft: #cfe0ff;
+  --dim: #7c8aa5;
+  --dim-2: #9fb0c9;
+  --panel: #111827;
+  --panel-2: #0c1322;
+  --border: #1f2a3d;
+
+  --cyan: #22d3ee;
+  --lime: #a3e635;
+  --rose: #fb7185;
+  --green: #34d399;
+  --violet: #c084fc;
+  --amber: #fbbf24;
+
+  /* per-game accent, overridden inline on each screen */
+  --a: #22d3ee;
 }
 
+/* Expose tokens to Tailwind utilities (v4 CSS-first config) */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-bg-deep: var(--bg-deep);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-dim: var(--dim);
+  --color-dim-2: var(--dim-2);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-border: var(--border);
+  --color-cyan: var(--cyan);
+  --color-lime: var(--lime);
+  --color-rose: var(--rose);
+  --color-green: var(--green);
+  --color-violet: var(--violet);
+  --color-amber: var(--amber);
+  --color-accent: var(--a);
+
+  --font-display: var(--font-space-grotesk), "Space Grotesk", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-deep);
+  color: var(--ink);
+  font-family: var(--font-display);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* The gradient text used for headline accents in every mockup */
+.grad {
+  background: linear-gradient(135deg, var(--a, #22d3ee), var(--lime));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Gradient fill (buttons / brand mark) */
+.grad-fill {
+  background: linear-gradient(135deg, var(--a, #22d3ee), var(--lime));
+}
+
+/* The two ambient radial glows behind every screen */
+.screen-glow {
+  background:
+    radial-gradient(900px 500px at 80% -10%, rgba(34, 211, 238, 0.1), transparent),
+    radial-gradient(800px 460px at 0% 110%, rgba(163, 230, 53, 0.08), transparent),
+    var(--bg);
+}
+
+/* Blinking terminal cursor */
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+.cursor {
+  display: inline-block;
+  width: 13px;
+  height: 24px;
+  background: var(--a, #22d3ee);
+  vertical-align: -4px;
+  animation: blink 1s steps(1) infinite;
+}
+
+/* Typewriter caret + subtle pop used by games */
+@keyframes pop-in {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.pop {
+  animation: pop-in 0.16s ease-out;
+}
+
+@keyframes floaty {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-8px);
+  }
+}
+
+/* Score / combo flash */
+@keyframes flash-up {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-40px);
+    opacity: 0;
+  }
+}
+.flash-up {
+  animation: flash-up 0.7s ease-out forwards;
 }
