@@ -17,12 +17,13 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ITeC FreshStart — Booth Game",
-  description: "Play to win. Tap a game to start.",
+  title: "ITeC FreshStart — What IT Path Are You?",
+  description:
+    "Four quick taps to find your IT path, then squash bugs for the top score.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0e17",
+  themeColor: "#f4f7fb",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

@@ -1,59 +1,55 @@
 import type { PathId } from "./types";
 export type { PathId } from "./types";
 
-// Metadata for each IT path (used by sorter / quiz reveal screens).
+// Metadata for each IT path (reveal + score screens).
 export interface PathMeta {
   id: PathId;
-  label: string; // "THE BUILDER"
-  word: string; // the gradient-highlighted word: "BUILDER"
+  label: string; // "The Builder"
+  word: string; // the blue-highlighted word: "Builder"
   emoji: string;
   blurb: string;
   playPrize: string;
-  accent: string; // hex accent for the reveal
 }
 
 export const PATHS: Record<PathId, PathMeta> = {
   builder: {
     id: "builder",
-    label: "THE BUILDER",
-    word: "BUILDER",
+    label: "The Builder",
+    word: "Builder",
     emoji: "🔨",
-    blurb: "You turn ideas into working software. Developers live here.",
+    blurb: "You turn ideas into working software. This is where developers start.",
     playPrize: "ITeC sticker pack",
-    accent: "#22d3ee",
   },
   guardian: {
     id: "guardian",
-    label: "THE GUARDIAN",
-    word: "GUARDIAN",
-    emoji: "🛡",
-    blurb: "You keep the systems safe. Cybersecurity is calling.",
+    label: "The Guardian",
+    word: "Guardian",
+    emoji: "🛡️",
+    blurb: "You keep systems safe and attackers out. Cybersecurity is calling.",
     playPrize: "ITeC enamel pin",
-    accent: "#34d399",
   },
   analyst: {
     id: "analyst",
-    label: "THE ANALYST",
-    word: "ANALYST",
+    label: "The Analyst",
+    word: "Analyst",
     emoji: "📊",
-    blurb: "You find the story in the data. Analytics is your turf.",
+    blurb: "You find the story hiding in the data. Analytics is your turf.",
     playPrize: "ITeC notebook",
-    accent: "#c084fc",
   },
   architect: {
     id: "architect",
-    label: "THE ARCHITECT",
-    word: "ARCHITECT",
-    emoji: "🏗",
-    blurb: "You design how it all fits together. Systems are your canvas.",
+    label: "The Architect",
+    word: "Architect",
+    emoji: "🏗️",
+    blurb: "You design how all the pieces fit together. Systems are your canvas.",
     playPrize: "ITeC keychain",
-    accent: "#fb7185",
   },
 };
 
-export const PATH_LIST: PathMeta[] = [
-  PATHS.builder,
-  PATHS.guardian,
-  PATHS.analyst,
-  PATHS.architect,
+// Fixed order — also the sorter's tie-break order.
+export const PATH_ORDER: PathId[] = [
+  "builder",
+  "guardian",
+  "analyst",
+  "architect",
 ];

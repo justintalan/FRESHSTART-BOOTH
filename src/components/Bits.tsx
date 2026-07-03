@@ -2,82 +2,48 @@
 
 import type { ReactNode } from "react";
 
-// Small shared presentational bits used across several games.
+// Small shared primitives from the mockups: kicker line, primary button,
+// prize pill.
 
 export function Kicker({ children }: { children: ReactNode }) {
   return (
-    <div className="mb-4 font-mono text-[15px] uppercase tracking-[3px] text-dim">
+    <div className="mb-[14px] font-mono text-[14px] uppercase tracking-[3px] text-dim">
       {children}
     </div>
   );
 }
 
-// Progress dots (e.g. 4 sorter questions). `total` dots, `current` filled.
-export function ProgressDots({
-  total,
-  current,
-}: {
-  total: number;
-  current: number;
-}) {
-  return (
-    <div className="mb-6 flex gap-[10px]">
-      {Array.from({ length: total }).map((_, i) => (
-        <span
-          key={i}
-          className="h-[14px] w-[14px] rounded-full"
-          style={{ background: i <= current ? "var(--a)" : "#1f2a3d" }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// The dashed lime play-prize badge.
-export function PrizeBadge({ children }: { children: ReactNode }) {
-  return (
-    <div className="mt-6 inline-flex gap-[10px] rounded-full border border-dashed border-lime px-[22px] py-3 font-mono text-[16px] text-lime">
-      {children}
-    </div>
-  );
-}
-
-// The big gradient CTA button.
-export function BigButton({
+export function PrimaryButton({
   children,
   onClick,
+  className = "",
 }: {
   children: ReactNode;
   onClick?: () => void;
+  className?: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className="mt-[34px] rounded-[14px] grad-fill px-10 py-5 text-[22px] font-bold text-[#04121a] transition-transform active:scale-95"
+      className={`grad-fill min-h-16 rounded-[14px] px-[42px] py-[19px] text-[22px] font-bold text-white shadow-[0_12px_30px_rgba(37,99,235,0.28)] transition-transform active:scale-95 ${className}`}
     >
       {children}
     </button>
   );
 }
 
-// The circular avatar used on reveal screens.
-export function Avatar({ emoji }: { emoji: ReactNode }) {
+export function PrizeBadge({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <div
-      className="mb-2 grid h-[180px] w-[180px] place-items-center rounded-full text-[92px]"
-      style={{
-        background: "radial-gradient(circle at 30% 30%,#1c2740,#0c1220)",
-        border: "2px solid var(--a)",
-      }}
+      className={`inline-flex items-center gap-[10px] rounded-full border border-primary-soft-border bg-primary-soft px-[22px] py-[11px] font-mono text-[15px] text-primary ${className}`}
     >
-      {emoji}
+      {children}
     </div>
-  );
-}
-
-// A generic subheading paragraph.
-export function Sub({ children }: { children: ReactNode }) {
-  return (
-    <div className="mt-4 max-w-[720px] text-[22px] text-dim-2">{children}</div>
   );
 }

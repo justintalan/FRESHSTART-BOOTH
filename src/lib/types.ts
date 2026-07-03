@@ -1,43 +1,60 @@
-// Shared data model for the ITeC FreshStart booth game.
+// Shared data model for the ITeC FreshStart "What IT Path Are You" booth game.
 
-export type GameId =
-  | "path-sorter"
-  | "terminal-reveal"
-  | "debug-arcade"
-  | "this-or-that"
-  | "build-setup"
-  | "spot-phish";
-
-export const GAME_IDS: GameId[] = [
-  "path-sorter",
-  "terminal-reveal",
-  "debug-arcade",
-  "this-or-that",
-  "build-setup",
-  "spot-phish",
-];
-
-export function isGameId(value: string): value is GameId {
-  return (GAME_IDS as string[]).includes(value);
-}
-
-// The four IT identities a sorter/quiz game can land you on.
+// The four IT identities the sorter can land you on.
 export type PathId = "builder" | "guardian" | "analyst" | "architect";
 
-// A single leaderboard row for a scored game, stored in localStorage.
+// A single leaderboard row, stored in localStorage (local-only, per day).
 export interface ScoreEntry {
   name: string;
   score: number;
   ts: number;
 }
 
-// Which games post a numeric score to a daily leaderboard.
-export const SCORED_GAMES: GameId[] = [
-  "path-sorter",
-  "debug-arcade",
-  "spot-phish",
-];
+/* ---------------- Bug generator ---------------- */
 
-export function isScoredGame(id: GameId): boolean {
-  return SCORED_GAMES.includes(id);
+export type BugKind =
+  | "assign-vs-equality" // == -> =
+  | "off-by-one" // range(len(x)) -> range(1, len(x))
+  | "wrong-case" // total -> Total
+  | "colon" // missing / extra colon
+  | "operator-swap" // + -> -, < -> <=
+  | "index-error" // x[i] -> x[i+1]
+  | "wrong-return" // return the wrong variable
+  | "boolean-swap"; // and -> or
+
+// A token in a template that MAY be rendered buggy. When the generator does
+// not activate it, its `clean` form renders as a correct-looking decoy.
+export interface BugSite {
+  clean: string;
+  buggy: string;
+  kind: BugKind;
+}
+
+// A template line is an ordered list of plain strings and bug sites.
+export type TemplateToken = string | BugSite;
+
+export interface SnippetTemplate {
+  id: string;
+  lang: "python" | "js" | "pseudo";
+  lines: TemplateToken[][];
+}
+
+// What the DEBUG screen actually renders and the player taps.
+export interface RenderedToken {
+  tokenId: string; // stable within a round, e.g. "L2T1"
+  text: string;
+  isBug: boolean; // true only for ACTIVATED bug sites
+  fix?: string; // for activated sites: the clean text shown once found
+}
+
+export interface RenderedLine {
+  num: number; // 1-based line number
+  tokens: RenderedToken[];
+}
+
+export interface Round {
+  templateId: string;
+  lines: RenderedLine[];
+  bugTokenIds: Set<string>;
+  bugCount: number;
 }

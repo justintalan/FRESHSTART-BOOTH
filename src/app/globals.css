@@ -1,48 +1,71 @@
 @import "tailwindcss";
 
 /* ============================================================
-   ITeC FreshStart — design tokens (source of truth: design-reference/)
+   ITeC FreshStart — "What IT Path Are You" design tokens
+   Source of truth: design-reference/1_attract.html … 5_score.html
+   (light theme)
    ============================================================ */
 :root {
-  --bg: #0a0e17;
-  --bg-deep: #070a12;
-  --ink: #e8edf7;
-  --ink-soft: #cfe0ff;
-  --dim: #7c8aa5;
-  --dim-2: #9fb0c9;
-  --panel: #111827;
-  --panel-2: #0c1322;
-  --border: #1f2a3d;
+  --bg: #f4f7fb;
+  --surface: #ffffff;
+  --ink: #0f172a;
+  --ink-2: #1e293b;
+  --body: #334155;
+  --slate: #475569;
+  --dim: #64748b;
+  --dim-2: #94a3b8;
+  --border: #e2e8f0;
+  --border-soft: #eef2f7;
+  --border-foot: #e7edf5;
+  --border-input: #cbd5e1;
 
-  --cyan: #22d3ee;
-  --lime: #a3e635;
-  --rose: #fb7185;
-  --green: #34d399;
-  --violet: #c084fc;
-  --amber: #fbbf24;
+  --primary: #2563eb;
+  --primary-2: #3b82f6;
+  --primary-3: #60a5fa;
+  --primary-soft: #eef4ff;
+  --primary-soft-border: #cfe0ff;
+  --card-active-border: #bcd3fb;
+  --avatar-border: #93c5fd;
+  --dot: #d7e0ec;
+  --ribbon-border: #dbe4f0;
 
-  /* per-game accent, overridden inline on each screen */
-  --a: #22d3ee;
+  --bug: #c0334a;
+  --bug-bg: #fdecee;
+  --bug-border: #f7bcc3;
+  --fix: #1f7a44;
+  --fix-bg: #e7f2ea;
+  --fix-border: #b7ddc3;
 }
 
 /* Expose tokens to Tailwind utilities (v4 CSS-first config) */
 @theme inline {
   --color-bg: var(--bg);
-  --color-bg-deep: var(--bg-deep);
+  --color-surface: var(--surface);
   --color-ink: var(--ink);
-  --color-ink-soft: var(--ink-soft);
+  --color-ink-2: var(--ink-2);
+  --color-body: var(--body);
+  --color-slate-ink: var(--slate);
   --color-dim: var(--dim);
   --color-dim-2: var(--dim-2);
-  --color-panel: var(--panel);
-  --color-panel-2: var(--panel-2);
   --color-border: var(--border);
-  --color-cyan: var(--cyan);
-  --color-lime: var(--lime);
-  --color-rose: var(--rose);
-  --color-green: var(--green);
-  --color-violet: var(--violet);
-  --color-amber: var(--amber);
-  --color-accent: var(--a);
+  --color-border-soft: var(--border-soft);
+  --color-border-foot: var(--border-foot);
+  --color-border-input: var(--border-input);
+  --color-primary: var(--primary);
+  --color-primary-2: var(--primary-2);
+  --color-primary-3: var(--primary-3);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-border: var(--primary-soft-border);
+  --color-card-active: var(--card-active-border);
+  --color-avatar-border: var(--avatar-border);
+  --color-dot: var(--dot);
+  --color-ribbon-border: var(--ribbon-border);
+  --color-bug: var(--bug);
+  --color-bug-bg: var(--bug-bg);
+  --color-bug-border: var(--bug-border);
+  --color-fix: var(--fix);
+  --color-fix-bg: var(--fix-bg);
+  --color-fix-border: var(--fix-border);
 
   --font-display: var(--font-space-grotesk), "Space Grotesk", sans-serif;
   --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", monospace;
@@ -54,8 +77,8 @@ body {
 }
 
 body {
-  background: var(--bg-deep);
-  color: var(--ink);
+  background: var(--bg);
+  color: var(--ink-2);
   font-family: var(--font-display);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
@@ -64,43 +87,23 @@ body {
   -webkit-user-select: none;
 }
 
-/* The gradient text used for headline accents in every mockup */
-.grad {
-  background: linear-gradient(135deg, var(--a, #22d3ee), var(--lime));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-/* Gradient fill (buttons / brand mark) */
-.grad-fill {
-  background: linear-gradient(135deg, var(--a, #22d3ee), var(--lime));
-}
-
-/* The two ambient radial glows behind every screen */
+/* The two ambient radial washes behind every screen (per mockups) */
 .screen-glow {
   background:
-    radial-gradient(900px 500px at 80% -10%, rgba(34, 211, 238, 0.1), transparent),
-    radial-gradient(800px 460px at 0% 110%, rgba(163, 230, 53, 0.08), transparent),
+    radial-gradient(900px 500px at 82% -12%, #e8f0fe, transparent),
+    radial-gradient(760px 460px at -5% 112%, #eef2f7, transparent),
     var(--bg);
 }
 
-/* Blinking terminal cursor */
-@keyframes blink {
-  50% {
-    opacity: 0;
-  }
+/* Primary gradient fill (buttons / brand mark) */
+.grad-fill {
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
 }
-.cursor {
-  display: inline-block;
-  width: 13px;
-  height: 24px;
-  background: var(--a, #22d3ee);
-  vertical-align: -4px;
-  animation: blink 1s steps(1) infinite;
+.brand-fill {
+  background: linear-gradient(135deg, var(--primary-2), var(--primary-3));
 }
 
-/* Typewriter caret + subtle pop used by games */
+/* Subtle pop for reveals and correct taps */
 @keyframes pop-in {
   0% {
     transform: scale(0.6);
@@ -118,26 +121,19 @@ body {
   animation: pop-in 0.16s ease-out;
 }
 
-@keyframes floaty {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(-8px);
-  }
-}
-
-/* Score / combo flash */
-@keyframes flash-up {
-  0% {
-    transform: translateY(0);
-    opacity: 1;
-  }
+/* Wrong-tap shake on a code token */
+@keyframes shake-x {
+  0%,
   100% {
-    transform: translateY(-40px);
-    opacity: 0;
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
   }
 }
-.flash-up {
-  animation: flash-up 0.7s ease-out forwards;
+.shake {
+  animation: shake-x 0.18s ease-in-out 2;
 }

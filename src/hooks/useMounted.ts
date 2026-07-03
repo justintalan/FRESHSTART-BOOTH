@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
-// True only after the first client render. Gate any time/random-derived UI on
-// this so the server-rendered HTML and first client render match (no flashes).
+const emptySubscribe = () => () => {};
+
+// True only after hydration on the client. Gate any localStorage/random
+// derived UI on this so server HTML and the first client render match.
 export function useMounted(): boolean {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  return mounted;
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
 }

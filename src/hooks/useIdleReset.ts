@@ -6,7 +6,9 @@ import { useEffect, useRef } from "react";
 // to the attract screen). Any pointer / key / touch resets the timer.
 export function useIdleReset(onIdle: () => void, timeoutMs = 30_000): void {
   const onIdleRef = useRef(onIdle);
-  onIdleRef.current = onIdle;
+  useEffect(() => {
+    onIdleRef.current = onIdle;
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;

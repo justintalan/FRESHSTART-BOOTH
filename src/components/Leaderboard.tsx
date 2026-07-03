@@ -2,49 +2,40 @@
 
 import type { ScoreEntry } from "../lib/types";
 
-// The daily leaderboard, both as a floating side panel (during play) and a
-// centered panel (on the end screen). Empty state invites the first player.
+// "TODAY'S TOP" side panel (mockup 4) / score-screen board. Local-only,
+// resets each calendar day.
 export function Leaderboard({
-  entries,
-  meIndex,
-  variant = "panel",
-  title = "TODAY'S TOP",
+  board,
+  highlightTs,
+  className = "",
 }: {
-  entries: ScoreEntry[];
-  meIndex?: number; // highlight this row as "YOU"
-  variant?: "panel" | "side";
-  title?: string;
+  board: ScoreEntry[];
+  highlightTs?: number;
+  className?: string;
 }) {
-  const rows = entries.slice(0, 10);
-  const side = variant === "side";
-
   return (
     <div
-      className={
-        side
-          ? "absolute right-10 top-[120px] w-[240px] rounded-2xl border border-border bg-panel p-[18px] text-left"
-          : "w-[440px] rounded-2xl border border-border bg-panel p-6 text-left"
-      }
+      className={`w-[238px] rounded-2xl border border-border bg-surface p-[18px] text-left shadow-[0_10px_28px_rgba(30,41,59,0.07)] ${className}`}
     >
-      <h4 className="mb-3 font-mono text-[13px] tracking-[2px] text-dim">
-        {title}
+      <h4 className="mb-3 font-mono text-[12px] tracking-[2px] text-dim-2">
+        TODAY&apos;S TOP
       </h4>
-
-      {rows.length === 0 ? (
-        <p className="py-2 font-mono text-[15px] text-dim">
-          Be the first today ✦
-        </p>
+      {board.length === 0 ? (
+        <div className="py-[7px] font-mono text-[15px] text-slate-ink">
+          Be the first today
+        </div>
       ) : (
-        rows.map((e, i) => (
+        board.slice(0, 5).map((e, i) => (
           <div
-            key={`${e.name}-${e.ts}-${i}`}
-            className="flex justify-between border-b border-dashed border-border py-[7px] font-mono text-[16px] last:border-0"
-            style={i === meIndex ? { color: "var(--a)" } : undefined}
+            key={`${e.ts}-${i}`}
+            className={`flex justify-between border-b border-border-soft py-[7px] font-mono text-[15px] ${
+              highlightTs === e.ts ? "font-bold text-primary" : "text-slate-ink"
+            }`}
           >
             <span>
-              {i + 1} {i === meIndex ? "YOU" : e.name}
+              {i + 1} {e.name}
             </span>
-            <span>{e.score}</span>
+            <span>{e.score.toLocaleString()}</span>
           </div>
         ))
       )}
