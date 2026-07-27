@@ -72,6 +72,17 @@ export type HudState = {
   isSolving: boolean;
   isForfeit: boolean;
   isPlaying: boolean;
+  // Blink and cycle states. The approved source expressed these as CSS
+  // keyframes that it never defined; driving them off the 12fps frame counter
+  // reproduces the stated timings exactly and keeps all motion on one clock.
+  // Each is pinned to a constant outside the mode that shows it, so it never
+  // churns React when nothing is looking.
+  /** INSERT COIN colour, cycling every frame (4 frames = .3333s). */
+  coinTone: "player" | "goal" | "rec" | "bone";
+  /** 1UP, blinking at 1Hz during play. */
+  oneUpOn: boolean;
+  /** TOUCH TO CONTINUE on the board screen, blinking at 2Hz. */
+  boardCueOn: boolean;
 };
 
 export const INITIAL_HUD: HudState = {
@@ -98,6 +109,9 @@ export const INITIAL_HUD: HudState = {
   isSolving: false,
   isForfeit: false,
   isPlaying: false,
+  coinTone: "player",
+  oneUpOn: true,
+  boardCueOn: true,
 };
 
 export type Point = { x: number; y: number };

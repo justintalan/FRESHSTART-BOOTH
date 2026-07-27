@@ -1,35 +1,22 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { ibmPlexMono, pressStart2P } from "./fonts";
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  display: "swap",
-});
-
 export const metadata: Metadata = {
-  title: "ITeC FreshStart — What IT Path Are You?",
+  title: "RECURSE",
   description:
-    "Four quick taps to find your IT path, then squash bugs for the top score.",
+    "A braided maze that carves itself in. Beat par, or forfeit and watch recursion solve it.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f4f7fb",
+  themeColor: "#0e0b1c",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
 };
 
+// No header, nav or footer. The stage is the entire page.
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -38,9 +25,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full`}
+      className={`${pressStart2P.variable} ${ibmPlexMono.variable} h-full`}
     >
-      <body className="h-full">{children}</body>
+      <body className="h-full bg-cabinet">{children}</body>
     </html>
   );
 }

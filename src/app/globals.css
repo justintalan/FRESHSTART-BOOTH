@@ -1,74 +1,27 @@
 @import "tailwindcss";
 
 /* ============================================================
-   ITeC FreshStart — "What IT Path Are You" design tokens
-   Source of truth: design-reference/1_attract.html … 5_score.html
-   (light theme)
+   RECURSE — booth cabinet design tokens
+   Source of truth: design-reference/RECURSE-approved.dc.html
+   Dark only. There is no light theme.
    ============================================================ */
-:root {
-  --bg: #f4f7fb;
-  --surface: #ffffff;
-  --ink: #0f172a;
-  --ink-2: #1e293b;
-  --body: #334155;
-  --slate: #475569;
-  --dim: #64748b;
-  --dim-2: #94a3b8;
-  --border: #e2e8f0;
-  --border-soft: #eef2f7;
-  --border-foot: #e7edf5;
-  --border-input: #cbd5e1;
+@theme {
+  --color-screen: #17132b; /* stage background */
+  --color-cabinet: #0e0b1c; /* outer bezel, marquee */
+  --color-band-0: #4c3f73; /* wall, nearest quarter to start */
+  --color-band-1: #3a3159;
+  --color-band-2: #2e2749;
+  --color-band-3: #241e3c; /* wall, deepest quarter */
+  --color-player: #ffd23f;
+  --color-goal: #3df5c0;
+  --color-rec: #ff3e8a; /* recursion / solver / wall hit */
+  --color-ghost: #8b6bc4; /* canvas dead-end marks, solver hatching, LOGO border */
+  --color-label: #a388d6; /* all HUD label text */
+  --color-bone: #f2efe6; /* primary text */
+  --color-node: #5fd3ff; /* junction dot */
 
-  --primary: #2563eb;
-  --primary-2: #3b82f6;
-  --primary-3: #60a5fa;
-  --primary-soft: #eef4ff;
-  --primary-soft-border: #cfe0ff;
-  --card-active-border: #bcd3fb;
-  --avatar-border: #93c5fd;
-  --dot: #d7e0ec;
-  --ribbon-border: #dbe4f0;
-
-  --bug: #c0334a;
-  --bug-bg: #fdecee;
-  --bug-border: #f7bcc3;
-  --fix: #1f7a44;
-  --fix-bg: #e7f2ea;
-  --fix-border: #b7ddc3;
-}
-
-/* Expose tokens to Tailwind utilities (v4 CSS-first config) */
-@theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-ink: var(--ink);
-  --color-ink-2: var(--ink-2);
-  --color-body: var(--body);
-  --color-slate-ink: var(--slate);
-  --color-dim: var(--dim);
-  --color-dim-2: var(--dim-2);
-  --color-border: var(--border);
-  --color-border-soft: var(--border-soft);
-  --color-border-foot: var(--border-foot);
-  --color-border-input: var(--border-input);
-  --color-primary: var(--primary);
-  --color-primary-2: var(--primary-2);
-  --color-primary-3: var(--primary-3);
-  --color-primary-soft: var(--primary-soft);
-  --color-primary-soft-border: var(--primary-soft-border);
-  --color-card-active: var(--card-active-border);
-  --color-avatar-border: var(--avatar-border);
-  --color-dot: var(--dot);
-  --color-ribbon-border: var(--ribbon-border);
-  --color-bug: var(--bug);
-  --color-bug-bg: var(--bug-bg);
-  --color-bug-border: var(--bug-border);
-  --color-fix: var(--fix);
-  --color-fix-bg: var(--fix-bg);
-  --color-fix-border: var(--fix-border);
-
-  --font-display: var(--font-space-grotesk), "Space Grotesk", sans-serif;
-  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", monospace;
+  --font-display: var(--font-press-start), monospace;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 }
 
 html,
@@ -77,63 +30,68 @@ body {
 }
 
 body {
-  background: var(--bg);
-  color: var(--ink-2);
-  font-family: var(--font-display);
+  background: var(--color-cabinet);
+  color: var(--color-bone);
+  font-family: var(--font-mono);
   overflow: hidden;
-  -webkit-font-smoothing: antialiased;
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* The two ambient radial washes behind every screen (per mockups) */
-.screen-glow {
-  background:
-    radial-gradient(900px 500px at 82% -12%, #e8f0fe, transparent),
-    radial-gradient(760px 460px at -5% 112%, #eef2f7, transparent),
-    var(--bg);
+/* ------------------------------------------------------------
+   Buttons. Exactly two states: idle and pressed. Pressed inverts
+   the fill and drops 4px. No hover — a touchscreen has none, and
+   a faked one reads wrong under a finger.
+   ------------------------------------------------------------ */
+.rc-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-width: 2px;
+  border-style: solid;
+  background: transparent;
+  font-family: var(--font-display);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-/* Primary gradient fill (buttons / brand mark) */
-.grad-fill {
-  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+.rc-btn--dpad {
+  border-color: var(--color-band-1);
+  color: var(--color-bone);
 }
-.brand-fill {
-  background: linear-gradient(135deg, var(--primary-2), var(--primary-3));
-}
-
-/* Subtle pop for reveals and correct taps */
-@keyframes pop-in {
-  0% {
-    transform: scale(0.6);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.08);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-.pop {
-  animation: pop-in 0.16s ease-out;
+.rc-btn--dpad:active {
+  background: var(--color-player);
+  color: var(--color-screen);
+  transform: translateY(4px);
 }
 
-/* Wrong-tap shake on a code token */
-@keyframes shake-x {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-3px);
-  }
-  75% {
-    transform: translateX(3px);
-  }
+.rc-btn--wheel {
+  border-color: var(--color-band-1);
+  color: var(--color-label);
 }
-.shake {
-  animation: shake-x 0.18s ease-in-out 2;
+.rc-btn--wheel:active {
+  background: var(--color-bone);
+  color: var(--color-screen);
+  transform: translateY(4px);
+}
+
+.rc-btn--enter {
+  border-color: var(--color-goal);
+  color: var(--color-goal);
+}
+.rc-btn--enter:active {
+  background: var(--color-goal);
+  color: var(--color-screen);
+  transform: translateY(4px);
+}
+
+.rc-btn--solve {
+  border-color: var(--color-rec);
+  color: var(--color-rec);
+}
+.rc-btn--solve:active {
+  background: var(--color-rec);
+  color: var(--color-screen);
+  transform: translateY(4px);
 }

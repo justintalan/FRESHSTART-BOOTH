@@ -10,7 +10,7 @@ export default function NotFound() {
     router.replace("/");
   }, [router]);
   return (
-    <div className="grid h-full place-items-center bg-bg font-mono text-dim">
+    <div className="grid h-full place-items-center bg-cabinet font-mono text-label">
       redirecting…
     </div>
   );

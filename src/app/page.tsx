@@ -1,369 +1,882 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { Stage } from "../components/Stage";
-import { Shell } from "../components/Shell";
-import { Kicker, PrimaryButton, PrizeBadge } from "../components/Bits";
-import { ChoiceCard } from "../components/ChoiceCard";
-import { CodePanel } from "../components/CodePanel";
-import { Hud } from "../components/Hud";
-import { Leaderboard } from "../components/Leaderboard";
-import { NameEntry } from "../components/NameEntry";
-import { useIdleReset } from "../hooks/useIdleReset";
-import { useMounted } from "../hooks/useMounted";
-import { generateRound } from "../lib/bugGen";
-import { addScore, getBoard } from "../lib/leaderboard";
-import { PATHS } from "../lib/paths";
-import { SORTER_QUESTIONS, scoreSorter } from "../lib/sorter";
-import { applyTap, createScoreState, type ScoreState } from "../lib/scoring";
-import type { PathId, Round, ScoreEntry } from "../lib/types";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { Stage } from "@/components/Stage";
+import {
+  CANVAS_BACKING,
+  CANVAS_SIZE,
+  KEY_MAP,
+  MAX_CATCHUP_STEPS,
+  MAX_FRAME_DELTA_MS,
+  STEP_MS,
+} from "@/game/config";
+import { RecurseEngine } from "@/game/engine";
+import { makeGrainDataUrl } from "@/game/grain";
+import { draw, setDisplayFont } from "@/game/render";
+import { INITIAL_HUD, type HudState } from "@/game/types";
+import { createBoardPort } from "@/lib/leaderboard";
+import { pressStart2P } from "./fonts";
 
-// Single-page state machine: ATTRACT -> SORTER -> REVEAL -> DEBUG -> SCORE
-// -> back to ATTRACT. One page (no routes): a booth kiosk never deep-links,
-// idle-reset must work from any screen, and per-play state (answers, round,
-// score) lives naturally in one component.
-type Phase = "ATTRACT" | "SORTER" | "REVEAL" | "DEBUG" | "SCORE";
+const DISPLAY = "var(--font-display)";
+const MONO = "var(--font-mono)";
 
-export default function Home() {
-  const [phase, setPhase] = useState<Phase>("ATTRACT");
-  const [qIndex, setQIndex] = useState(0);
-  const [answers, setAnswers] = useState<number[]>([]);
-  const [path, setPath] = useState<PathId | null>(null);
-  const [round, setRound] = useState<Round | null>(null);
-  const [scoreState, setScoreState] = useState<ScoreState>(createScoreState);
-  const [wrongFlashId, setWrongFlashId] = useState<string | null>(null);
-  const [board, setBoard] = useState<ScoreEntry[]>([]);
-  const [saved, setSaved] = useState<{ rank: number | null; ts: number } | null>(
-    null,
-  );
-  const timers = useRef<number[]>([]);
+const TONE: Record<HudState["coinTone"], string> = {
+  player: "var(--color-player)",
+  goal: "var(--color-goal)",
+  rec: "var(--color-rec)",
+  bone: "var(--color-bone)",
+};
 
-  const later = useCallback((fn: () => void, ms: number) => {
-    timers.current.push(window.setTimeout(fn, ms));
+const label = (size = 10, extra: CSSProperties = {}): CSSProperties => ({
+  fontFamily: DISPLAY,
+  fontSize: size,
+  color: "var(--color-label)",
+  letterSpacing: 2,
+  ...extra,
+});
+
+const rule: CSSProperties = { height: 2, background: "var(--color-band-1)" };
+
+const checker: CSSProperties = {
+  flex: "1 1 auto",
+  height: 24,
+  backgroundImage:
+    "repeating-conic-gradient(var(--color-band-1) 0% 25%,var(--color-cabinet) 0% 50%)",
+  backgroundSize: "16px 16px",
+};
+
+const panel = (border: string, extra: CSSProperties = {}): CSSProperties => ({
+  background: "var(--color-screen)",
+  border: `2px solid ${border}`,
+  ...extra,
+});
+
+const overlayCentre: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  pointerEvents: "none",
+};
+
+const dpadKey: CSSProperties = { width: 72, height: 72, fontSize: 22 };
+
+export default function Page() {
+  const [hud, setHud] = useState<HudState>(INITIAL_HUD);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const grainRef = useRef<HTMLDivElement | null>(null);
+  const engineRef = useRef<RecurseEngine | null>(null);
+
+  useEffect(() => {
+    setDisplayFont(pressStart2P.style.fontFamily);
+
+    if (grainRef.current) {
+      grainRef.current.style.backgroundImage = `url(${makeGrainDataUrl()})`;
+      grainRef.current.style.backgroundSize = "96px 96px";
+    }
+
+    const engine = new RecurseEngine({
+      board: createBoardPort(),
+      reducedMotion:
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    });
+    // No sync setState here: the first logic frame (<=83ms away) pushes the
+    // full HUD, leader included, from the rAF callback.
+    engine.onHud = setHud;
+    engineRef.current = engine;
+
+    const onKey = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (KEY_MAP[k] || k === " " || k === "enter") e.preventDefault();
+      engine.handleKey(k);
+    };
+    window.addEventListener("keydown", onKey);
+
+    // Fixed 12fps logic on an accumulator, rendering every rAF. The 250ms
+    // delta clamp and the 4-step catch-up cap together are what stop a
+    // backgrounded tab from unwinding thousands of frames on return.
+    const ctx = canvasRef.current?.getContext("2d") ?? null;
+    let last = performance.now();
+    let acc = 0;
+    let raf = 0;
+
+    const tick = (t: number) => {
+      acc += Math.min(MAX_FRAME_DELTA_MS, t - last);
+      last = t;
+      let guard = 0;
+      while (acc >= STEP_MS && guard++ < MAX_CATCHUP_STEPS) {
+        acc -= STEP_MS;
+        engine.step();
+      }
+      if (ctx) draw(ctx, engine);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("keydown", onKey);
+      engine.onHud = null;
+      engineRef.current = null;
+    };
   }, []);
-  const clearTimers = useCallback(() => {
-    timers.current.forEach((t) => window.clearTimeout(t));
-    timers.current = [];
+
+  const local = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) * (CANVAS_SIZE / r.width),
+      y: (e.clientY - r.top) * (CANVAS_SIZE / r.height),
+    };
+  };
+
+  const onPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLCanvasElement>) => {
+      e.preventDefault();
+      engineRef.current?.pointerDown(local(e));
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* capture is a nicety, not a requirement */
+      }
+    },
+    [],
+  );
+
+  const onPointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLCanvasElement>) => {
+      engineRef.current?.pointerMove(local(e));
+    },
+    [],
+  );
+
+  const onPointerUp = useCallback(() => {
+    engineRef.current?.pointerUp();
   }, []);
 
-  const refreshBoard = useCallback(() => setBoard(getBoard()), []);
+  const move = (dx: number, dy: number) => engineRef.current?.move(dx, dy);
+  const bump = (i: number, d: number) => engineRef.current?.bump(i, d);
 
-  // Reset a play in progress (idle, DONE button, attract loop).
-  const resetToAttract = useCallback(() => {
-    clearTimers();
-    setPhase("ATTRACT");
-    setQIndex(0);
-    setAnswers([]);
-    setPath(null);
-    setRound(null);
-    setScoreState(createScoreState());
-    setWrongFlashId(null);
-    setSaved(null);
-    refreshBoard();
-  }, [clearTimers, refreshBoard]);
-
-  // Any screen returns to ATTRACT after 30s without input.
-  useIdleReset(() => {
-    if (phase !== "ATTRACT") resetToAttract();
-  }, 30_000);
-
-  const startSorter = useCallback(() => {
-    clearTimers();
-    setQIndex(0);
-    setAnswers([]);
-    setPath(null);
-    setRound(null);
-    setScoreState(createScoreState());
-    setWrongFlashId(null);
-    setSaved(null);
-    setPhase("SORTER");
-  }, [clearTimers]);
-
-  const answer = useCallback(
-    (choice: number) => {
-      const next = [...answers, choice];
-      setAnswers(next);
-      if (next.length >= SORTER_QUESTIONS.length) {
-        setPath(scoreSorter(next));
-        setPhase("REVEAL");
-      } else {
-        setQIndex(next.length);
-      }
-    },
-    [answers],
-  );
-
-  // Every play gets a FRESH randomized round — the anti-cheat requirement.
-  const startDebug = useCallback(() => {
-    setRound(generateRound());
-    setScoreState(createScoreState());
-    setWrongFlashId(null);
-    refreshBoard();
-    setPhase("DEBUG");
-  }, [refreshBoard]);
-
-  const tapToken = useCallback(
-    (tokenId: string) => {
-      if (!round) return;
-      const { state, result, done } = applyTap(scoreState, round, tokenId);
-      setScoreState(state);
-      if (result === "miss") {
-        setWrongFlashId(tokenId);
-        later(() => setWrongFlashId(null), 420);
-      }
-      if (done) {
-        refreshBoard();
-        later(() => setPhase("SCORE"), 750);
-      }
-    },
-    [round, scoreState, later, refreshBoard],
-  );
-
-  const save = useCallback(
-    (name: string) => {
-      const ts = Date.now();
-      const { board: nextBoard, rank } = addScore({
-        name,
-        score: scoreState.score,
-        ts,
-      });
-      setBoard(nextBoard);
-      setSaved({ rank, ts });
-    },
-    [scoreState.score],
-  );
+  const wheels = [hud.i0, hud.i1, hud.i2];
 
   return (
     <Stage>
-      {phase === "ATTRACT" && <AttractScreen onStart={startSorter} />}
-      {phase === "SORTER" && (
-        <SorterScreen qIndex={qIndex} onChoose={answer} />
-      )}
-      {phase === "REVEAL" && path && (
-        <RevealScreen path={path} onPlay={startDebug} />
-      )}
-      {phase === "DEBUG" && round && (
-        <DebugScreen
-          round={round}
-          scoreState={scoreState}
-          wrongFlashId={wrongFlashId}
-          board={board}
-          onTap={tapToken}
-        />
-      )}
-      {phase === "SCORE" && path && (
-        <ScoreScreen
-          path={path}
-          score={scoreState.score}
-          board={board}
-          saved={saved}
-          onSave={save}
-          onPlayAgain={startSorter}
-          onDone={resetToAttract}
-        />
-      )}
-    </Stage>
-  );
-}
+      {/* marquee */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 40,
+          background: "var(--color-cabinet)",
+          display: "flex",
+          alignItems: "center",
+          gap: 18,
+          padding: "0 18px",
+        }}
+      >
+        <div style={checker} />
+        <span
+          style={{
+            fontFamily: DISPLAY,
+            fontSize: 18,
+            color: "var(--color-bone)",
+            letterSpacing: 4,
+          }}
+        >
+          RECURSE
+        </span>
+        <div style={checker} />
+      </div>
 
-/* ---------------- Screens ---------------- */
-
-function AttractScreen({ onStart }: { onStart: () => void }) {
-  // Read the board at render time, gated on mounted so server HTML and the
-  // hydration render agree (localStorage only exists on the client).
-  const mounted = useMounted();
-  const top = mounted ? getBoard()[0] : undefined;
-  return (
-    <div className="h-full w-full" onPointerDown={onStart}>
-      <Shell ribbon="WHAT IT PATH ARE YOU?">
-        <Kicker>ITeC FreshStart · booth game</Kicker>
-        <h1 className="text-[74px] font-bold leading-[1.03] text-ink">
-          What IT Path
-          <br />
-          are <span className="text-primary">you?</span>
-        </h1>
-        <p className="mt-4 max-w-[720px] text-[22px] text-dim">
-          Four quick taps to find your path. Then squash some bugs for the top
-          score.
-        </p>
-        <PrimaryButton className="mt-8">TAP TO START</PrimaryButton>
-        <PrizeBadge className="mt-[22px]">
-          {top ? (
-            <>
-              🏆 Today&apos;s top: {top.name} · {top.score.toLocaleString()}
-            </>
-          ) : (
-            <>🏆 Be the first today</>
-          )}
-        </PrizeBadge>
-      </Shell>
-    </div>
-  );
-}
-
-function SorterScreen({
-  qIndex,
-  onChoose,
-}: {
-  qIndex: number;
-  onChoose: (choice: number) => void;
-}) {
-  const q = SORTER_QUESTIONS[qIndex];
-  return (
-    <Shell ribbon={`SORTER · QUESTION ${qIndex + 1} OF ${SORTER_QUESTIONS.length}`}>
-      <Kicker>What IT path are you?</Kicker>
-      <div className="mb-6 flex gap-[10px]">
-        {SORTER_QUESTIONS.map((_, i) => (
+      {/* top HUD */}
+      <div
+        style={{
+          position: "absolute",
+          top: 40,
+          left: 0,
+          right: 0,
+          height: 64,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 24px",
+          borderBottom: "2px solid var(--color-band-1)",
+        }}
+      >
+        <span style={label()}>ITEC FRESHSTART</span>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 7,
+          }}
+        >
+          <span style={label()}>HI-SCORE</span>
           <span
-            key={i}
-            className={`h-3 w-3 rounded-full ${i <= qIndex ? "bg-primary" : "bg-dot"}`}
-          />
-        ))}
+            style={{
+              fontFamily: DISPLAY,
+              fontSize: 16,
+              color: "var(--color-bone)",
+              letterSpacing: 2,
+            }}
+          >
+            {hud.leader}
+          </span>
+        </div>
+        <span style={label()}>{hud.seedStr}</span>
       </div>
-      <h1 className="text-[74px] font-bold leading-[1.03] text-ink">
-        {q.pre}
-        <span className="text-primary">{q.accent}</span>
-        {q.post}
-      </h1>
-      <div className="mt-11 flex gap-[26px]">
-        <ChoiceCard {...q.options[0]} onClick={() => onChoose(0)} />
-        <ChoiceCard {...q.options[1]} onClick={() => onChoose(1)} />
-      </div>
-      <div className="mt-9 font-mono text-[14px] text-dim-2">
-        No wrong answer. Tap your gut.
-      </div>
-    </Shell>
-  );
-}
 
-function RevealScreen({
-  path,
-  onPlay,
-}: {
-  path: PathId;
-  onPlay: () => void;
-}) {
-  const meta = PATHS[path];
-  return (
-    <Shell ribbon="YOUR PATH">
-      <Kicker>You are</Kicker>
-      <div className="pop mb-2 grid h-[172px] w-[172px] place-items-center rounded-full border-[3px] border-avatar-border bg-surface text-[86px] shadow-[0_12px_34px_rgba(37,99,235,0.14)]">
-        {meta.emoji}
-      </div>
-      <h1 className="text-[74px] font-bold leading-[1.03] text-ink">
-        The <span className="text-primary">{meta.word}</span>
-      </h1>
-      <p className="mt-4 max-w-[720px] text-[22px] text-dim">{meta.blurb}</p>
-      <PrizeBadge className="mt-[22px]">
-        🎟 Play prize · {meta.playPrize}
-      </PrizeBadge>
-      <PrimaryButton className="mt-8" onClick={onPlay}>
-        PLAY FOR THE GRAND PRIZE →
-      </PrimaryButton>
-    </Shell>
-  );
-}
-
-function DebugScreen({
-  round,
-  scoreState,
-  wrongFlashId,
-  board,
-  onTap,
-}: {
-  round: Round;
-  scoreState: ScoreState;
-  wrongFlashId: string | null;
-  board: ScoreEntry[];
-  onTap: (tokenId: string) => void;
-}) {
-  return (
-    <Shell ribbon="DEBUG SPRINT · NO TIMER">
-      <Kicker>Find the bugs · precision scored</Kicker>
-      <Hud
-        score={scoreState.score}
-        found={scoreState.found.size}
-        total={round.bugCount}
-        nextBugValue={scoreState.nextBugValue}
-      />
-      <h1 className="mb-4 text-[40px] font-bold text-ink">
-        Tap the <span className="text-primary">bugs</span>
-      </h1>
-      <CodePanel
-        round={round}
-        found={scoreState.found}
-        wrongFlashId={wrongFlashId}
-        onTap={onTap}
-      />
-      <div className="mt-9 font-mono text-[14px] text-dim-2">
-        Correct tap adds points. A wrong tap shrinks what every remaining bug
-        is worth.
-      </div>
-      <Leaderboard board={board} className="absolute right-11 top-8" />
-    </Shell>
-  );
-}
-
-function ScoreScreen({
-  path,
-  score,
-  board,
-  saved,
-  onSave,
-  onPlayAgain,
-  onDone,
-}: {
-  path: PathId;
-  score: number;
-  board: ScoreEntry[];
-  saved: { rank: number | null; ts: number } | null;
-  onSave: (name: string) => void;
-  onPlayAgain: () => void;
-  onDone: () => void;
-}) {
-  const meta = PATHS[path];
-  const top = board[0];
-  const prospective = board.filter((e) => e.score >= score).length + 1;
-
-  return (
-    <Shell ribbon="FINAL SCORE">
-      <Kicker>{meta.label} · nice work</Kicker>
-      <div className="pop text-[96px] font-bold leading-none text-primary">
-        {score.toLocaleString()}
-      </div>
-      {!saved ? (
-        <>
-          <p className="mt-3 max-w-[720px] text-[22px] text-dim">
-            {!top || score >= top.score
-              ? "Top of the board today. Save it to claim the lead."
-              : `Rank #${prospective} today. Beat ${top.score.toLocaleString()} to take the grand prize.`}
-          </p>
-          <NameEntry onSave={onSave} />
-        </>
-      ) : (
-        <>
-          <p className="mt-3 max-w-[720px] text-[22px] text-dim">
-            {saved.rank
-              ? `Saved — rank #${saved.rank} today.`
-              : "Saved — outside today's top 10. Try another run!"}
-          </p>
-          <Leaderboard board={board} highlightTs={saved.ts} className="mt-5" />
-          <div className="mt-6 flex items-center gap-4">
-            <PrimaryButton onClick={onPlayAgain} className="px-[26px] py-[14px] text-[18px]">
-              PLAY AGAIN
-            </PrimaryButton>
-            <button
-              onClick={onDone}
-              className="min-h-16 rounded-[14px] border border-border bg-surface px-[26px] py-[14px] text-[18px] font-bold text-slate-ink transition-transform active:scale-95"
+      {/* middle row */}
+      <div
+        style={{
+          position: "absolute",
+          top: 104,
+          bottom: 64,
+          left: 0,
+          right: 0,
+          display: "flex",
+          alignItems: "stretch",
+        }}
+      >
+        {/* left rail */}
+        <div
+          style={{
+            width: 332,
+            flex: "0 0 332px",
+            padding: "22px 24px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontFamily: DISPLAY,
+                fontSize: 11,
+                letterSpacing: 2,
+                marginBottom: 14,
+                color: hud.isPlaying
+                  ? "var(--color-player)"
+                  : "var(--color-label)",
+                visibility: hud.isPlaying && !hud.oneUpOn ? "hidden" : "visible",
+              }}
             >
-              DONE
-            </button>
+              1UP
+            </div>
+            <div
+              style={{
+                fontFamily: DISPLAY,
+                fontSize: 42,
+                lineHeight: 1,
+                letterSpacing: 1,
+                color: "var(--color-bone)",
+              }}
+            >
+              {hud.score}
+            </div>
+            <div style={{ ...rule, margin: "22px 0" }} />
+            <div style={{ display: "flex", gap: 36 }}>
+              <div>
+                <div style={label(10, { marginBottom: 10 })}>PAR</div>
+                <div
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontSize: 22,
+                    color: "var(--color-goal)",
+                  }}
+                >
+                  {hud.par}
+                </div>
+              </div>
+              <div>
+                <div style={label(10, { marginBottom: 10 })}>STEPS</div>
+                <div
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontSize: 22,
+                    color: "var(--color-player)",
+                  }}
+                >
+                  {hud.steps}
+                </div>
+              </div>
+            </div>
           </div>
-        </>
-      )}
-      <PrizeBadge className="mt-[22px]">
-        🎟 Show this screen to claim your play prize
-      </PrizeBadge>
-    </Shell>
+          <div>
+            <div style={{ ...rule, marginBottom: 16 }} />
+            <div style={label(11)}>{hud.statusLine}</div>
+          </div>
+        </div>
+
+        {/* centre: canvas + overlays */}
+        <div
+          style={{
+            flex: "1 1 auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",
+          }}
+        >
+          <canvas
+            ref={canvasRef}
+            width={CANVAS_SIZE * CANVAS_BACKING}
+            height={CANVAS_SIZE * CANVAS_BACKING}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            style={{
+              width: CANVAS_SIZE,
+              height: CANVAS_SIZE,
+              display: "block",
+              imageRendering: "pixelated",
+              touchAction: "none",
+            }}
+          />
+
+          {hud.isAttract && (
+            <div style={{ ...overlayCentre, gap: 18 }}>
+              <div
+                style={panel("var(--color-band-1)", { padding: "18px 26px" })}
+              >
+                <span
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontSize: 24,
+                    letterSpacing: 2,
+                    color: TONE[hud.coinTone],
+                  }}
+                >
+                  INSERT COIN
+                </span>
+              </div>
+              <div
+                style={{
+                  background: "var(--color-screen)",
+                  padding: "6px 10px",
+                  fontFamily: MONO,
+                  fontSize: 12,
+                  letterSpacing: ".24em",
+                  color: "var(--color-label)",
+                }}
+              >
+                touch anywhere or press WASD to start
+              </div>
+            </div>
+          )}
+
+          {hud.isReady && (
+            <div style={{ ...overlayCentre, flexDirection: "row" }}>
+              <div
+                style={panel("var(--color-player)", { padding: "20px 30px" })}
+              >
+                <span
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontSize: 28,
+                    color: "var(--color-player)",
+                    letterSpacing: 3,
+                  }}
+                >
+                  READY?
+                </span>
+              </div>
+            </div>
+          )}
+
+          {hud.isSolving && (
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 0,
+                display: "flex",
+                justifyContent: "center",
+                pointerEvents: "none",
+              }}
+            >
+              <div
+                style={{
+                  background: "var(--color-screen)",
+                  borderBottom: "2px solid var(--color-rec)",
+                  padding: "10px 18px",
+                  fontFamily: DISPLAY,
+                  fontSize: 11,
+                  letterSpacing: 2,
+                  color: "var(--color-rec)",
+                }}
+              >
+                AUTO SOLVE
+              </div>
+            </div>
+          )}
+
+          {hud.isWin && (
+            <div style={overlayCentre}>
+              <div
+                style={panel("var(--color-goal)", {
+                  padding: "32px 38px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 20,
+                  minWidth: 470,
+                })}
+              >
+                <div
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontSize: 28,
+                    color: "var(--color-goal)",
+                    letterSpacing: 3,
+                  }}
+                >
+                  STAGE CLEAR
+                </div>
+                <div
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontSize: 52,
+                    lineHeight: 1,
+                    color: "var(--color-bone)",
+                    letterSpacing: 2,
+                  }}
+                >
+                  {hud.winScore}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 26,
+                    fontFamily: DISPLAY,
+                    fontSize: 11,
+                    letterSpacing: 1,
+                    color: "var(--color-label)",
+                  }}
+                >
+                  <span>STEPS {hud.steps}</span>
+                  <span>PAR {hud.par}</span>
+                  <span>TIME {hud.time}</span>
+                </div>
+                <div style={{ ...rule, width: "100%" }} />
+                <div
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 13,
+                    letterSpacing: ".14em",
+                    color: "var(--color-bone)",
+                    textAlign: "center",
+                    maxWidth: 400,
+                  }}
+                >
+                  {hud.winMsg}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hud.isForfeit && (
+            <div style={overlayCentre}>
+              <div
+                style={panel("var(--color-rec)", {
+                  padding: "24px 30px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 14,
+                })}
+              >
+                <span
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontSize: 30,
+                    color: "var(--color-rec)",
+                    letterSpacing: 3,
+                  }}
+                >
+                  GAME OVER
+                </span>
+                <span style={label(11)}>SOLVED BY RECURSION</span>
+                <span
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 12,
+                    letterSpacing: ".14em",
+                    color: "var(--color-label)",
+                  }}
+                >
+                  {hud.forfeitStat}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {hud.isInitials && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "rgba(23,19,43,.94)",
+              }}
+            >
+              <div style={label(11, { marginBottom: 26 })}>
+                ENTER YOUR INITIALS
+              </div>
+              <div style={{ display: "flex", gap: 18 }}>
+                {wheels.map((letter, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <button
+                      className="rc-btn rc-btn--wheel"
+                      onClick={() => bump(i, 1)}
+                      style={{ width: 72, height: 64, fontSize: 20 }}
+                    >
+                      ▲
+                    </button>
+                    <div
+                      style={{
+                        width: 72,
+                        height: 76,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "2px solid var(--color-player)",
+                        fontFamily: DISPLAY,
+                        fontSize: 34,
+                        color: "var(--color-player)",
+                      }}
+                    >
+                      {letter}
+                    </div>
+                    <button
+                      className="rc-btn rc-btn--wheel"
+                      onClick={() => bump(i, -1)}
+                      style={{ width: 72, height: 64, fontSize: 20 }}
+                    >
+                      ▼
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                className="rc-btn rc-btn--enter"
+                onClick={() => engineRef.current?.submitInitials()}
+                style={{
+                  marginTop: 30,
+                  height: 64,
+                  padding: "0 40px",
+                  fontSize: 16,
+                  letterSpacing: 2,
+                }}
+              >
+                ENTER
+              </button>
+            </div>
+          )}
+
+          {hud.isBoard && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                background: "rgba(23,19,43,.95)",
+                padding: "0 46px",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: DISPLAY,
+                  fontSize: 18,
+                  color: "var(--color-bone)",
+                  letterSpacing: 3,
+                  marginBottom: 8,
+                }}
+              >
+                HI-SCORES
+              </div>
+              <div
+                style={{
+                  fontFamily: MONO,
+                  fontSize: 11,
+                  letterSpacing: ".2em",
+                  color: "var(--color-label)",
+                  marginBottom: 18,
+                }}
+              >
+                resets at midnight — same maze for everyone today
+              </div>
+              {hud.boardRows.map((row) => (
+                <div
+                  key={row.rank}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 18,
+                    padding: "9px 0",
+                    borderBottom: "1px solid var(--color-band-1)",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 32,
+                      fontFamily: DISPLAY,
+                      fontSize: 11,
+                      color: "var(--color-label)",
+                    }}
+                  >
+                    {row.rank}
+                  </span>
+                  <span
+                    style={{
+                      flex: "1 1 auto",
+                      fontFamily: DISPLAY,
+                      fontSize: 15,
+                      color: "var(--color-bone)",
+                    }}
+                  >
+                    {row.name}
+                  </span>
+                  <span style={label(10, { letterSpacing: 1 })}>
+                    {row.detail}
+                  </span>
+                  <span
+                    style={{
+                      width: 128,
+                      textAlign: "right",
+                      fontFamily: DISPLAY,
+                      fontSize: 15,
+                      color: "var(--color-player)",
+                    }}
+                  >
+                    {row.score}
+                  </span>
+                </div>
+              ))}
+              <div
+                style={{
+                  marginTop: 22,
+                  fontFamily: DISPLAY,
+                  fontSize: 11,
+                  letterSpacing: 2,
+                  color: "var(--color-goal)",
+                  visibility: hud.boardCueOn ? "visible" : "hidden",
+                }}
+              >
+                TOUCH TO CONTINUE
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* right rail */}
+        <div
+          style={{
+            width: 332,
+            flex: "0 0 332px",
+            padding: "22px 24px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+          }}
+        >
+          <div style={{ textAlign: "right", width: "100%" }}>
+            <div style={label(10, { marginBottom: 14 })}>TIME</div>
+            <div
+              style={{
+                fontFamily: DISPLAY,
+                fontSize: 34,
+                color: "var(--color-bone)",
+                letterSpacing: 1,
+              }}
+            >
+              {hud.time}
+            </div>
+            <div style={{ ...rule, margin: "22px 0 14px" }} />
+            <div style={label(10, { lineHeight: 1.9 })}>
+              REVISIT {hud.revisitStr}
+            </div>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 14,
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3,72px)",
+                gridTemplateRows: "repeat(2,72px)",
+                gap: 6,
+              }}
+            >
+              <button
+                className="rc-btn rc-btn--dpad"
+                onClick={() => move(0, -1)}
+                style={{ ...dpadKey, gridColumn: 2, gridRow: 1 }}
+              >
+                ▲
+              </button>
+              <button
+                className="rc-btn rc-btn--dpad"
+                onClick={() => move(-1, 0)}
+                style={{ ...dpadKey, gridColumn: 1, gridRow: 2 }}
+              >
+                ◀
+              </button>
+              <button
+                className="rc-btn rc-btn--dpad"
+                onClick={() => move(0, 1)}
+                style={{ ...dpadKey, gridColumn: 2, gridRow: 2 }}
+              >
+                ▼
+              </button>
+              <button
+                className="rc-btn rc-btn--dpad"
+                onClick={() => move(1, 0)}
+                style={{ ...dpadKey, gridColumn: 3, gridRow: 2 }}
+              >
+                ▶
+              </button>
+            </div>
+            <div
+              style={{
+                fontFamily: MONO,
+                fontSize: 11,
+                letterSpacing: ".18em",
+                color: "var(--color-label)",
+                textAlign: "right",
+              }}
+            >
+              drag on the maze or use WASD
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* bottom HUD */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 64,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 24px",
+          borderTop: "2px solid var(--color-band-1)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <button
+            className="rc-btn rc-btn--solve"
+            onClick={() => engineRef.current?.solve()}
+            style={{
+              height: 56,
+              padding: "0 22px",
+              fontSize: 13,
+              letterSpacing: 1,
+            }}
+          >
+            SOLVE IT
+          </button>
+          <span style={label(10, { letterSpacing: 1 })}>FORFEITS RUN</span>
+        </div>
+        <div style={label(11, { letterSpacing: 3 })}>STAGE 01</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <span style={label(10, { letterSpacing: 1 })}>CREDITS 01</span>
+          <span style={label(10, { letterSpacing: 1 })}>MADE BY</span>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              border: "2px dashed var(--color-ghost)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: DISPLAY,
+              fontSize: 8,
+              color: "var(--color-label)",
+            }}
+          >
+            LOGO
+          </div>
+        </div>
+      </div>
+
+      {/* CRT overlays, in order: grain, scanlines, vignette, inset shadow */}
+      <div
+        ref={grainRef}
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          opacity: 0.05,
+          mixBlendMode: "screen",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background:
+            "repeating-linear-gradient(to bottom,rgba(0,0,0,.26) 0px,rgba(0,0,0,.26) 1px,rgba(0,0,0,0) 1px,rgba(0,0,0,0) 3px)",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background:
+            "radial-gradient(120% 100% at 50% 50%,rgba(0,0,0,0) 52%,rgba(0,0,0,.40) 100%)",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          borderRadius: 22,
+          boxShadow:
+            "inset 0 0 44px rgba(0,0,0,.55),inset 0 0 2px rgba(242,239,230,.14)",
+        }}
+      />
+    </Stage>
   );
 }
