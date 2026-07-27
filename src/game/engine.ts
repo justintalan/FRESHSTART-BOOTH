@@ -54,6 +54,9 @@ type Flash = { text: string; until: number; c: number };
 /** INSERT COIN cycles amber -> mint -> magenta -> bone, one frame each. */
 const COIN_TONES = ["player", "goal", "rec", "bone"] as const;
 
+/** Initials wheel index -> letter. 0 is 'A', which is also the reset value. */
+const letter = (n: number) => String.fromCharCode(65 + n);
+
 export class RecurseEngine {
   mode: Mode = "attract";
   frame = 0;
@@ -431,26 +434,29 @@ export class RecurseEngine {
   openInitials(): void {
     this.mode = "initials";
     this.slot = 0;
-    this.push({ statusLine: "ENTER NAME" });
+    // Every run enters on AAA. The engine outlives the run, so without this
+    // the next student opens on the previous student's letters — and anyone
+    // who just hits ENTER signs the board under someone else's initials.
+    // Pushed as well as reset: i0/i1/i2 only ever reach the HUD from bump(),
+    // so clearing the array alone would leave the stale letters on screen.
+    this.initials = [0, 0, 0];
+    this.push({ statusLine: "ENTER NAME", i0: "A", i1: "A", i2: "A" });
   }
 
   bump(i: number, d: number): void {
     this.wake();
     this.slot = i;
     this.initials[i] = (this.initials[i] + d + 26) % 26;
-    const L = (n: number) => String.fromCharCode(65 + n);
     this.push({
-      i0: L(this.initials[0]),
-      i1: L(this.initials[1]),
-      i2: L(this.initials[2]),
+      i0: letter(this.initials[0]),
+      i1: letter(this.initials[1]),
+      i2: letter(this.initials[2]),
     });
   }
 
   submitInitials(): void {
     this.wake();
-    const name = this.initials
-      .map((n) => String.fromCharCode(65 + n))
-      .join("");
+    const name = this.initials.map(letter).join("");
     this.board.save({
       name,
       score: this.finalScore,
