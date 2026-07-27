@@ -164,6 +164,12 @@ export class RecurseEngine {
     this.goal = null;
     if (this.reduced) this.maze.finishCarve();
     this.attractHold = 0;
+    // A booth screen reading INSERT COIN next to 00:47 looks like a game in
+    // progress that belongs to whoever walked away. The clock is the one HUD
+    // value the approved source leaves ungated in attract; score, STEPS and
+    // REVISIT are already pinned by the `live` check in pushHud().
+    this.elapsed = 0;
+    this.t0 = null;
     this.push({ statusLine: "DEMO", winMsg: "", forfeitStat: "" });
     this.refreshLeader();
   }

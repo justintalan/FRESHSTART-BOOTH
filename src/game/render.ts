@@ -97,6 +97,11 @@ export function draw(
 
   const pattern = ensureDither(ctx);
   ctx.setTransform(CANVAS_BACKING, 0, 0, CANVAS_BACKING, 0, 0);
+  // The 2x transform scales the 4x4 dither pattern, and Canvas samples
+  // patterns bilinearly by default — which turns the ordered dither into a
+  // soft alpha wash (measured: #FFD23F over #17132B at a=0.62 and a=0.37).
+  // Nearest-neighbour keeps it the crisp two-tone the design specifies.
+  ctx.imageSmoothingEnabled = false;
 
   const cellX = (c: number) => g.off + (c % N) * P;
   const cellY = (c: number) => g.off + ((c / N) | 0) * P;

@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { Logo } from "@/components/Logo";
 import { Stage } from "@/components/Stage";
 import {
   CANVAS_BACKING,
@@ -820,21 +821,7 @@ export default function Page() {
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <span style={label(10, { letterSpacing: 1 })}>CREDITS 01</span>
           <span style={label(10, { letterSpacing: 1 })}>MADE BY</span>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              border: "2px dashed var(--color-ghost)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontFamily: DISPLAY,
-              fontSize: 8,
-              color: "var(--color-label)",
-            }}
-          >
-            LOGO
-          </div>
+          <Logo size={48} className="text-bone" />
         </div>
       </div>
 

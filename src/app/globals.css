@@ -15,7 +15,7 @@
   --color-player: #ffd23f;
   --color-goal: #3df5c0;
   --color-rec: #ff3e8a; /* recursion / solver / wall hit */
-  --color-ghost: #8b6bc4; /* canvas dead-end marks, solver hatching, LOGO border */
+  --color-ghost: #8b6bc4; /* canvas dead-end marks, solver hatching */
   --color-label: #a388d6; /* all HUD label text */
   --color-bone: #f2efe6; /* primary text */
   --color-node: #5fd3ff; /* junction dot */
