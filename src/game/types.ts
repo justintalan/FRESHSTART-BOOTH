@@ -1,14 +1,7 @@
 // Shared shapes. No `enum` and no constructor parameter properties anywhere in
 // src/game — that keeps these modules runnable under Node's type-stripping.
 
-export type Mode =
-  | "attract"
-  | "play"
-  | "solving"
-  | "forfeit"
-  | "won"
-  | "initials"
-  | "board";
+export type Mode = "attract" | "play" | "solving" | "forfeit" | "won";
 
 /** Wall bitmask directions. 1=N 2=E 4=S 8=W. */
 export const N_DIR = 1;
@@ -27,26 +20,6 @@ export type Geometry = {
   off: number;
 };
 
-export type BoardEntry = {
-  name: string;
-  score: number;
-  steps: number;
-  at: number;
-};
-
-/** How the engine reaches storage without importing it. */
-export type BoardPort = {
-  load: () => BoardEntry[];
-  save: (entry: BoardEntry) => void;
-};
-
-export type BoardRow = {
-  rank: string;
-  name: string;
-  detail: string;
-  score: string;
-};
-
 /** Everything React renders. Strings only — no per-frame numbers. */
 export type HudState = {
   score: string;
@@ -54,23 +27,18 @@ export type HudState = {
   steps: string;
   time: string;
   revisitStr: string;
-  leader: string;
   seedStr: string;
   winScore: string;
   winMsg: string;
   forfeitStat: string;
   statusLine: string;
-  i0: string;
-  i1: string;
-  i2: string;
-  boardRows: BoardRow[];
   isAttract: boolean;
   isReady: boolean;
   isWin: boolean;
-  isInitials: boolean;
-  isBoard: boolean;
   isSolving: boolean;
   isForfeit: boolean;
+  /** True when the current forfeit was caused by the clock, not SOLVE IT. */
+  isTimeUp: boolean;
   isPlaying: boolean;
   // Blink and cycle states. The approved source expressed these as CSS
   // keyframes that it never defined; driving them off the 12fps frame counter
@@ -81,8 +49,6 @@ export type HudState = {
   coinTone: "player" | "goal" | "rec" | "bone";
   /** 1UP, blinking at 1Hz during play. */
   oneUpOn: boolean;
-  /** TOUCH TO CONTINUE on the board screen, blinking at 2Hz. */
-  boardCueOn: boolean;
 };
 
 export const INITIAL_HUD: HudState = {
@@ -91,27 +57,20 @@ export const INITIAL_HUD: HudState = {
   steps: "000",
   time: "00:00",
   revisitStr: "000",
-  leader: "--- ------",
   seedStr: "--------",
   winScore: "000000",
   winMsg: "",
   forfeitStat: "",
   statusLine: "DEMO",
-  i0: "A",
-  i1: "A",
-  i2: "A",
-  boardRows: [],
   isAttract: true,
   isReady: false,
   isWin: false,
-  isInitials: false,
-  isBoard: false,
   isSolving: false,
   isForfeit: false,
+  isTimeUp: false,
   isPlaying: false,
   coinTone: "player",
   oneUpOn: true,
-  boardCueOn: true,
 };
 
 export type Point = { x: number; y: number };

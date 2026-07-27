@@ -28,6 +28,15 @@ export const CARVE_STEPS_PLAY = 36;
 /** Chance a dead end gets a wall knocked out, creating loops. */
 export const BRAID_CHANCE = 0.45;
 
+/**
+ * How strongly the carve favors its session's biased direction over the
+ * other three. 1 = uniform (no bias); higher skews corridors that way.
+ */
+export const CARVE_BIAS_WEIGHT = 3;
+
+/** Player's time budget for a play run, counting down on the HUD clock. */
+export const TIME_LIMIT_SECONDS = 15;
+
 /** Input stays locked while READY? shows, after the play carve completes. */
 export const READY_FRAMES = 12;
 
@@ -48,8 +57,12 @@ export const IDLE_MS = 30_000;
 /** DFS cells consumed per logic frame while SOLVE IT runs. */
 export const SOLVER_SPEED = 2;
 
-/** 'daily' gives everyone at the booth the same maze; 'random' is for testing. */
-export const SEED_MODE: "daily" | "random" = "daily";
+/**
+ * 'daily' gives everyone at the booth the same maze (only matters for a
+ * leaderboard, which this build doesn't have); 'random' gives a fresh maze
+ * every run.
+ */
+export const SEED_MODE: "daily" | "random" = "random";
 
 /** Frames between repeat moves while a pointer is held down. */
 export const STEER_REPEAT_FRAMES = 2;

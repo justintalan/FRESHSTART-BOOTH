@@ -95,3 +95,12 @@ body {
   color: var(--color-screen);
   transform: translateY(4px);
 }
+
+/* The ITeC mark is a credit, not a control — a mouse-hover nicety is fine
+   here even though buttons above deliberately skip it for touch. */
+.rc-logo {
+  transition: transform 120ms ease;
+}
+.rc-logo:hover {
+  transform: scale(1.15);
+}

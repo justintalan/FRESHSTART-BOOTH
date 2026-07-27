@@ -1,7 +1,7 @@
 // The maze model: carve, braid, analyze, shortest path. Knows nothing about
 // score, canvas, React or storage. Ported from the approved design source.
 
-import { BRAID_CHANCE } from "./config";
+import { BRAID_CHANCE, CARVE_BIAS_WEIGHT } from "./config";
 import { mulberry32 } from "./rng";
 import { E_DIR, N_DIR, S_DIR, W_DIR, type Geometry } from "./types";
 
@@ -34,13 +34,17 @@ export class Maze {
   parReady = false;
 
   private rand: () => number;
+  /** Direction bit (N/E/S/W_DIR) the carve favors, or 0 for no bias. Set
+   *  once per session so every maze in a session leans the same way. */
+  private bias: number;
 
-  constructor(gridSize: number, size: number, seed: number) {
+  constructor(gridSize: number, size: number, seed: number, bias = 0) {
     this.geo = geometry(gridSize, size);
     const n = this.geo.N * this.geo.N;
     this.walls = new Uint8Array(n).fill(15);
     this.seen = new Uint8Array(n);
     this.rand = mulberry32(seed);
+    this.bias = bias;
     this.stack = [0];
     this.seen[0] = 1;
   }
@@ -72,7 +76,7 @@ export class Maze {
     if (x > 0 && !this.seen[cur - 1]) opts.push([W_DIR, cur - 1, E_DIR]);
 
     if (opts.length) {
-      const p = opts[(this.rand() * opts.length) | 0];
+      const p = this.pickBiased(opts);
       this.walls[cur] &= ~p[0];
       this.walls[p[1]] &= ~p[2];
       this.seen[p[1]] = 1;
@@ -81,6 +85,22 @@ export class Maze {
       this.stack.pop();
     }
     return true;
+  }
+
+  /** Weighted pick among carve options: the session's biased direction is
+   *  CARVE_BIAS_WEIGHT times as likely as any other open option. */
+  private pickBiased<T extends [number, number, number]>(opts: T[]): T {
+    if (!this.bias || opts.length === 1) {
+      return opts[(this.rand() * opts.length) | 0];
+    }
+    let total = 0;
+    for (const o of opts) total += o[0] === this.bias ? CARVE_BIAS_WEIGHT : 1;
+    let r = this.rand() * total;
+    for (const o of opts) {
+      r -= o[0] === this.bias ? CARVE_BIAS_WEIGHT : 1;
+      if (r < 0) return o;
+    }
+    return opts[opts.length - 1];
   }
 
   /** Run the carve to completion in one go (reduced motion, and SOLVE IT

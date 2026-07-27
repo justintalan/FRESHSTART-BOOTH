@@ -6,8 +6,10 @@ WASD, scored against the BFS shortest path. A `SOLVE IT` button runs depth-first
 search and forfeits your run — the recursion the game is named for, shown
 eating its own dead ends.
 
-Everyone at the booth gets the **same maze each day**, so scores compare. The
-board resets at midnight.
+Every run gets a fresh random maze — no leaderboard, so there's no need for
+everyone to see the same one. Each booth session also rolls a carve-direction
+bias, so mazes across the room lean different ways. You have 15 seconds to
+reach the goal before the run forfeits.
 
 Client-only. No backend, no database, no auth, no analytics, no network calls.
 Deploys to Vercel with zero config.
@@ -56,16 +58,14 @@ src/
     Logo.tsx        ITeC mark, masked from /itec-logo.png
   game/             framework-free: no React, no DOM (except render/grain)
     config.ts       every tunable in one place
-    types.ts        Mode, HudState, BoardEntry, BoardPort
+    types.ts        Mode, HudState
     rng.ts          mulberry32 + FNV-1a
     maze.ts         carve / braid / analyze / shortest
-    scoring.ts      coefficients, score(), isEligible()
+    scoring.ts      coefficients, score()
     solver.ts       iterative DFS with a ghost trail
     engine.ts       the state machine
     render.ts       draw(ctx, engine)
     grain.ts        CRT grain data URL
-  lib/
-    leaderboard.ts  localStorage daily board
 ```
 
 `src/game/` avoids `enum`, constructor parameter properties and decorators, so
@@ -90,6 +90,11 @@ get a cyan dot, dead ends a violet cross).
 
 `par` is the true BFS shortest path, computed **after** braiding.
 
+Each `RecurseEngine` instance also rolls one direction (N/E/S/W) at
+construction time and weights the carve toward it (`CARVE_BIAS_WEIGHT` in
+`config.ts`). Every maze that session — attract demos and play runs alike —
+leans that way, so reloading the page changes the maze's general "grain."
+
 ## Scoring
 
 ```
@@ -104,35 +109,24 @@ score = clamp(0, 999999,
 
 Coefficients live in `src/game/scoring.ts` as named constants.
 
-A run reaches the leaderboard only if `!usedSolve && steps <= par + 10`. Press
-`SOLVE IT` and you are out, however fast you were.
+A run also has a hard 15-second clock (`TIME_LIMIT_SECONDS` in `config.ts`),
+counting down on the HUD. Reaching the goal or running out of time both end
+the run; running out forfeits it, same as pressing `SOLVE IT`.
 
 The displayed score eases toward the target by a fifth of the gap per frame, so
 penalties read as a visible drop rather than a jump.
 
-## Daily seed
+## Maze seed
 
 ```
-seed = fnv1a('recurse-' + YYYYMMDD + '-' + gridSize)
+seed = fnv1a('recurse-' + YYYYMMDD + '-' + gridSize)   // SEED_MODE = 'daily'
+seed = Math.random() * 1e9                              // SEED_MODE = 'random' (default)
 ```
 
-Fed to a mulberry32 PRNG. `Math.random()` is never used for generation — two
-loads on the same calendar day produce byte-identical mazes, different days
-differ. Attract-mode demo mazes *are* random, since nobody scores them.
-
-Set `SEED_MODE = 'random'` in `src/game/config.ts` for testing.
-
-## Leaderboard
-
-`localStorage`, key `recurse.board.<YYYYMMDD>`, entries of
-`{ name, score, steps, at }`, sorted descending, capped at ten. A new calendar
-day starts an empty board; old days are simply never read.
-
-Every access is wrapped in try/catch, so a blocked or full `localStorage`
-degrades to an empty board instead of throwing.
-
-The engine never touches storage directly — it receives a `BoardPort`
-(`{ load, save }`) so the state machine stays testable outside a browser.
+Fed to a mulberry32 PRNG. With no leaderboard there's no need for everyone to
+see the same maze, so `SEED_MODE` in `src/game/config.ts` defaults to
+`'random'` — every run gets a fresh layout. Switch it to `'daily'` to get a
+byte-identical maze for every load on the same calendar day instead.
 
 ## Frame timing
 
@@ -151,12 +145,13 @@ one clock.
 ## Accessibility and input
 
 - Touch: drag anywhere on the maze to steer, or use the on-screen D-pad.
-- Keyboard: WASD or arrows; space/enter on the win screen; enter submits
-  initials.
+- Keyboard: WASD or arrows; space/enter dismisses the win screen.
 - `prefers-reduced-motion: reduce` finishes the carve instantly and runs the
   solver in bulk chunks rather than animating.
-- Buttons have exactly two states, idle and pressed. **No hover states** — a
-  touchscreen has none, and a faked one reads wrong under a finger.
+- Buttons have exactly two states, idle and pressed. **No hover states** on
+  controls — a touchscreen has none, and a faked one reads wrong under a
+  finger. The ITeC logo is the one exception: it's a credit, not a control,
+  and enlarges slightly on mouse hover (`.rc-logo` in `globals.css`).
 - 30 seconds without input from any mode returns to attract.
 
 ## Deploying

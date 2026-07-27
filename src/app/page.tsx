@@ -22,7 +22,6 @@ import { RecurseEngine } from "@/game/engine";
 import { makeGrainDataUrl } from "@/game/grain";
 import { draw, setDisplayFont } from "@/game/render";
 import { INITIAL_HUD, type HudState } from "@/game/types";
-import { createBoardPort } from "@/lib/leaderboard";
 import { pressStart2P } from "./fonts";
 
 const DISPLAY = "var(--font-display)";
@@ -86,13 +85,12 @@ export default function Page() {
     }
 
     const engine = new RecurseEngine({
-      board: createBoardPort(),
       reducedMotion:
         typeof window.matchMedia === "function" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     });
     // No sync setState here: the first logic frame (<=83ms away) pushes the
-    // full HUD, leader included, from the rAF callback.
+    // full HUD from the rAF callback.
     engine.onHud = setHud;
     engineRef.current = engine;
 
@@ -165,9 +163,6 @@ export default function Page() {
   }, []);
 
   const move = (dx: number, dy: number) => engineRef.current?.move(dx, dy);
-  const bump = (i: number, d: number) => engineRef.current?.bump(i, d);
-
-  const wheels = [hud.i0, hud.i1, hud.i2];
 
   return (
     <Stage>
@@ -216,26 +211,6 @@ export default function Page() {
         }}
       >
         <span style={label()}>ITEC FRESHSTART</span>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 7,
-          }}
-        >
-          <span style={label()}>HI-SCORE</span>
-          <span
-            style={{
-              fontFamily: DISPLAY,
-              fontSize: 16,
-              color: "var(--color-bone)",
-              letterSpacing: 2,
-            }}
-          >
-            {hud.leader}
-          </span>
-        </div>
         <span style={label()}>{hud.seedStr}</span>
       </div>
 
@@ -510,9 +485,11 @@ export default function Page() {
                     letterSpacing: 3,
                   }}
                 >
-                  GAME OVER
+                  {hud.isTimeUp ? "TIME'S UP" : "GAME OVER"}
                 </span>
-                <span style={label(11)}>SOLVED BY RECURSION</span>
+                <span style={label(11)}>
+                  {hud.isTimeUp ? "OUT OF TIME" : "SOLVED BY RECURSION"}
+                </span>
                 <span
                   style={{
                     fontFamily: MONO,
@@ -523,176 +500,6 @@ export default function Page() {
                 >
                   {hud.forfeitStat}
                 </span>
-              </div>
-            </div>
-          )}
-
-          {hud.isInitials && (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "rgba(23,19,43,.94)",
-              }}
-            >
-              <div style={label(11, { marginBottom: 26 })}>
-                ENTER YOUR INITIALS
-              </div>
-              <div style={{ display: "flex", gap: 18 }}>
-                {wheels.map((letter, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                  >
-                    <button
-                      className="rc-btn rc-btn--wheel"
-                      onClick={() => bump(i, 1)}
-                      style={{ width: 72, height: 64, fontSize: 20 }}
-                    >
-                      ▲
-                    </button>
-                    <div
-                      style={{
-                        width: 72,
-                        height: 76,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        border: "2px solid var(--color-player)",
-                        fontFamily: DISPLAY,
-                        fontSize: 34,
-                        color: "var(--color-player)",
-                      }}
-                    >
-                      {letter}
-                    </div>
-                    <button
-                      className="rc-btn rc-btn--wheel"
-                      onClick={() => bump(i, -1)}
-                      style={{ width: 72, height: 64, fontSize: 20 }}
-                    >
-                      ▼
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                className="rc-btn rc-btn--enter"
-                onClick={() => engineRef.current?.submitInitials()}
-                style={{
-                  marginTop: 30,
-                  height: 64,
-                  padding: "0 40px",
-                  fontSize: 16,
-                  letterSpacing: 2,
-                }}
-              >
-                ENTER
-              </button>
-            </div>
-          )}
-
-          {hud.isBoard && (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                background: "rgba(23,19,43,.95)",
-                padding: "0 46px",
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: DISPLAY,
-                  fontSize: 18,
-                  color: "var(--color-bone)",
-                  letterSpacing: 3,
-                  marginBottom: 8,
-                }}
-              >
-                HI-SCORES
-              </div>
-              <div
-                style={{
-                  fontFamily: MONO,
-                  fontSize: 11,
-                  letterSpacing: ".2em",
-                  color: "var(--color-label)",
-                  marginBottom: 18,
-                }}
-              >
-                resets at midnight — same maze for everyone today
-              </div>
-              {hud.boardRows.map((row) => (
-                <div
-                  key={row.rank}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 18,
-                    padding: "9px 0",
-                    borderBottom: "1px solid var(--color-band-1)",
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 32,
-                      fontFamily: DISPLAY,
-                      fontSize: 11,
-                      color: "var(--color-label)",
-                    }}
-                  >
-                    {row.rank}
-                  </span>
-                  <span
-                    style={{
-                      flex: "1 1 auto",
-                      fontFamily: DISPLAY,
-                      fontSize: 15,
-                      color: "var(--color-bone)",
-                    }}
-                  >
-                    {row.name}
-                  </span>
-                  <span style={label(10, { letterSpacing: 1 })}>
-                    {row.detail}
-                  </span>
-                  <span
-                    style={{
-                      width: 128,
-                      textAlign: "right",
-                      fontFamily: DISPLAY,
-                      fontSize: 15,
-                      color: "var(--color-player)",
-                    }}
-                  >
-                    {row.score}
-                  </span>
-                </div>
-              ))}
-              <div
-                style={{
-                  marginTop: 22,
-                  fontFamily: DISPLAY,
-                  fontSize: 11,
-                  letterSpacing: 2,
-                  color: "var(--color-goal)",
-                  visibility: hud.boardCueOn ? "visible" : "hidden",
-                }}
-              >
-                TOUCH TO CONTINUE
               </div>
             </div>
           )}
@@ -802,7 +609,9 @@ export default function Page() {
           borderTop: "2px solid var(--color-band-1)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <Logo size={48} className="text-bone rc-logo" />
+          <span style={label(10, { letterSpacing: 1 })}>MADE BY</span>
           <button
             className="rc-btn rc-btn--solve"
             onClick={() => engineRef.current?.solve()}
@@ -818,11 +627,7 @@ export default function Page() {
           <span style={label(10, { letterSpacing: 1 })}>FORFEITS RUN</span>
         </div>
         <div style={label(11, { letterSpacing: 3 })}>STAGE 01</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={label(10, { letterSpacing: 1 })}>CREDITS 01</span>
-          <span style={label(10, { letterSpacing: 1 })}>MADE BY</span>
-          <Logo size={48} className="text-bone" />
-        </div>
+        <span style={label(10, { letterSpacing: 1 })}>CREDITS 01</span>
       </div>
 
       {/* CRT overlays, in order: grain, scanlines, vignette, inset shadow */}

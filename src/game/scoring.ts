@@ -12,9 +12,6 @@ export const SECOND_COST = 120;
 /** Cost per attempted move into a wall. */
 export const WALL_HIT_COST = 900;
 
-/** How far over par a run may finish and still reach the leaderboard. */
-export const ELIGIBLE_SLACK = 10;
-
 export type ScoreInput = {
   pool: number;
   steps: number;
@@ -33,13 +30,4 @@ export function score(input: ScoreInput): number {
     Math.floor(input.elapsedSeconds) * SECOND_COST -
     input.wallHits * WALL_HIT_COST;
   return Math.max(0, Math.min(SCORE_MAX, raw));
-}
-
-/** Only a clean run within par + 10 may sign the board. */
-export function isEligible(
-  usedSolve: boolean,
-  steps: number,
-  par: number,
-): boolean {
-  return !usedSolve && steps <= par + ELIGIBLE_SLACK;
 }

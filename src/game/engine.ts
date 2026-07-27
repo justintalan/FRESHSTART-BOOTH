@@ -1,6 +1,5 @@
 // The state machine. Owns position, counters, score easing, idle timeout and
-// mode transitions. No React, no DOM, no localStorage — storage arrives as a
-// BoardPort and reduced-motion as a flag, both injected by the React layer.
+// mode transitions. No React, no DOM, no localStorage.
 
 import {
   ATTRACT_HOLD_FRAMES,
@@ -17,12 +16,13 @@ import {
   SEED_MODE,
   SOLVER_SPEED,
   STEER_REPEAT_FRAMES,
+  TIME_LIMIT_SECONDS,
   WIN_HOLD_FRAMES,
   WIN_INPUT_AFTER,
 } from "./config";
 import { geometry, Maze } from "./maze";
 import { fnv1a } from "./rng";
-import { DEFAULT_POOL, isEligible, REVISIT_COST, score } from "./scoring";
+import { DEFAULT_POOL, REVISIT_COST, score } from "./scoring";
 import { Solver } from "./solver";
 import {
   E_DIR,
@@ -30,14 +30,12 @@ import {
   N_DIR,
   S_DIR,
   W_DIR,
-  type BoardPort,
   type HudState,
   type Mode,
   type Point,
 } from "./types";
 
 export type EngineOptions = {
-  board: BoardPort;
   reducedMotion?: boolean;
   gridSize?: number;
   size?: number;
@@ -53,9 +51,6 @@ type Flash = { text: string; until: number; c: number };
 
 /** INSERT COIN cycles amber -> mint -> magenta -> bone, one frame each. */
 const COIN_TONES = ["player", "goal", "rec", "bone"] as const;
-
-/** Initials wheel index -> letter. 0 is 'A', which is also the reset value. */
-const letter = (n: number) => String.fromCharCode(65 + n);
 
 export class RecurseEngine {
   mode: Mode = "attract";
@@ -85,7 +80,6 @@ export class RecurseEngine {
   winPath: number[] | null = null;
   winFrame = 0;
   sweep = 0;
-  eligible = false;
   finalScore = 0;
 
   /** Eased score readout, chasing `target`. */
@@ -98,12 +92,14 @@ export class RecurseEngine {
   readonly today: string;
   readonly pool: number;
 
-  private readonly board: BoardPort;
   private readonly reduced: boolean;
   private readonly gridSize: number;
   private readonly size: number;
   private readonly solverSpeed: number;
   private readonly seedMode: "daily" | "random";
+  /** Carve direction this session favors. Rolled once per engine (i.e. per
+   *  booth session) so every maze it generates leans the same way. */
+  private readonly sessionBias: number;
 
   private elapsed = 0;
   private t0: number | null = null;
@@ -113,18 +109,17 @@ export class RecurseEngine {
   private attractHold = 0;
   private holdFrames = 0;
   private pointer: Point | null = null;
+  private forfeitCause: "solve" | "time" = "solve";
   private repeatAt = 0;
-  private initials = [0, 0, 0];
-  private slot = 0;
 
   constructor(opts: EngineOptions) {
-    this.board = opts.board;
     this.reduced = opts.reducedMotion ?? false;
     this.gridSize = opts.gridSize ?? GRID_SIZE;
     this.size = opts.size ?? CANVAS_SIZE;
     this.solverSpeed = Math.max(1, Math.round(opts.solverSpeed ?? SOLVER_SPEED));
     this.seedMode = opts.seedMode ?? SEED_MODE;
     this.pool = Math.max(1000, Math.round(opts.scorePool ?? DEFAULT_POOL));
+    this.sessionBias = [N_DIR, E_DIR, S_DIR, W_DIR][(Math.random() * 4) | 0];
 
     if (opts.today) {
       this.today = opts.today;
@@ -167,14 +162,9 @@ export class RecurseEngine {
     this.goal = null;
     if (this.reduced) this.maze.finishCarve();
     this.attractHold = 0;
-    // A booth screen reading INSERT COIN next to 00:47 looks like a game in
-    // progress that belongs to whoever walked away. The clock is the one HUD
-    // value the approved source leaves ungated in attract; score, STEPS and
-    // REVISIT are already pinned by the `live` check in pushHud().
     this.elapsed = 0;
     this.t0 = null;
     this.push({ statusLine: "DEMO", winMsg: "", forfeitStat: "" });
-    this.refreshLeader();
   }
 
   startPlay(): void {
@@ -207,7 +197,7 @@ export class RecurseEngine {
   }
 
   private newMaze(seed: number): void {
-    this.maze = new Maze(this.gridSize, this.size, seed);
+    this.maze = new Maze(this.gridSize, this.size, seed, this.sessionBias);
     this.visits = new Uint16Array(this.maze.cellCount);
     this.ghosts = new Set();
     this.solver = null;
@@ -247,12 +237,26 @@ export class RecurseEngine {
   private finishSolve(): void {
     this.mode = "forfeit";
     this.holdFrames = 0;
+    this.forfeitCause = "solve";
     const onPath = this.solver ? this.solver.stack.length : 0;
     this.push({
       statusLine: "GAME OVER",
       isForfeit: true,
+      isTimeUp: false,
       forfeitStat:
         this.ghosts.size + " dead ends abandoned / " + onPath + " on path",
+    });
+  }
+
+  private timeUp(): void {
+    this.mode = "forfeit";
+    this.holdFrames = 0;
+    this.forfeitCause = "time";
+    this.push({
+      statusLine: "TIME'S UP",
+      isForfeit: true,
+      isTimeUp: true,
+      forfeitStat: this.steps + " steps taken / out of time",
     });
   }
 
@@ -263,7 +267,6 @@ export class RecurseEngine {
     this.sweep = 0;
     this.winPath = this.maze.shortest(this.start, this.goal as number);
     this.disp = 0;
-    this.eligible = isEligible(this.usedSolve, this.steps, this.maze.par);
     this.push({ statusLine: "STAGE CLEAR" });
   }
 
@@ -284,15 +287,7 @@ export class RecurseEngine {
       this.startAttract();
       return true;
     }
-    if (this.mode === "board") {
-      this.startAttract();
-      return true;
-    }
-    if (
-      this.mode === "won" &&
-      this.winFrame > WIN_INPUT_AFTER &&
-      !this.eligible
-    ) {
+    if (this.mode === "won" && this.winFrame > WIN_INPUT_AFTER) {
       this.startAttract();
       return true;
     }
@@ -302,26 +297,6 @@ export class RecurseEngine {
   /** `key` is an already-lowercased KeyboardEvent.key. */
   handleKey(key: string): void {
     if (this.anyInput()) return;
-    if (
-      this.mode === "won" &&
-      this.eligible &&
-      (key === " " || key === "enter")
-    ) {
-      this.openInitials();
-      return;
-    }
-    if (this.mode === "initials") {
-      if (key === "enter") {
-        this.submitInitials();
-      } else {
-        const d = KEY_MAP[key];
-        if (d) {
-          if (d[1]) this.bump(this.slot, -d[1]);
-          else this.slot = Math.max(0, Math.min(2, this.slot + d[0]));
-        }
-      }
-      return;
-    }
     const d = KEY_MAP[key];
     if (d) this.move(d[0], d[1]);
   }
@@ -329,14 +304,6 @@ export class RecurseEngine {
   /** `p` is in logical canvas units, converted by the React layer. */
   pointerDown(p: Point): void {
     if (this.anyInput()) return;
-    if (
-      this.mode === "won" &&
-      this.eligible &&
-      this.winFrame > WIN_INPUT_AFTER
-    ) {
-      this.openInitials();
-      return;
-    }
     this.pointer = p;
     this.repeatAt = this.frame;
     this.steer(true);
@@ -417,70 +384,6 @@ export class RecurseEngine {
     this.beginSolve();
   }
 
-  // ---------- leaderboard ----------
-
-  /** Cached so pushHud() can carry the leader every frame without hitting
-   *  storage 12 times a second. */
-  private leaderStr = "--- ------";
-
-  private refreshLeader(): void {
-    const b = this.board.load();
-    this.leaderStr = b.length
-      ? b[0].name + " " + String(b[0].score).padStart(6, "0")
-      : "--- ------";
-    this.push({ leader: this.leaderStr });
-  }
-
-  openInitials(): void {
-    this.mode = "initials";
-    this.slot = 0;
-    // Every run enters on AAA. The engine outlives the run, so without this
-    // the next student opens on the previous student's letters — and anyone
-    // who just hits ENTER signs the board under someone else's initials.
-    // Pushed as well as reset: i0/i1/i2 only ever reach the HUD from bump(),
-    // so clearing the array alone would leave the stale letters on screen.
-    this.initials = [0, 0, 0];
-    this.push({ statusLine: "ENTER NAME", i0: "A", i1: "A", i2: "A" });
-  }
-
-  bump(i: number, d: number): void {
-    this.wake();
-    this.slot = i;
-    this.initials[i] = (this.initials[i] + d + 26) % 26;
-    this.push({
-      i0: letter(this.initials[0]),
-      i1: letter(this.initials[1]),
-      i2: letter(this.initials[2]),
-    });
-  }
-
-  submitInitials(): void {
-    this.wake();
-    const name = this.initials.map(letter).join("");
-    this.board.save({
-      name,
-      score: this.finalScore,
-      steps: this.steps,
-      at: Date.now(),
-    });
-    this.showBoard();
-  }
-
-  private showBoard(): void {
-    this.mode = "board";
-    const b = this.board.load();
-    this.push({
-      statusLine: "HI-SCORES",
-      boardRows: b.slice(0, 10).map((r, i) => ({
-        rank: String(i + 1).padStart(2, "0"),
-        name: r.name,
-        detail: r.steps + " STEPS",
-        score: String(r.score).padStart(6, "0"),
-      })),
-    });
-    this.refreshLeader();
-  }
-
   // ---------- one logic frame ----------
 
   step(): void {
@@ -510,14 +413,18 @@ export class RecurseEngine {
         this.steer(false);
       }
       if (this.t0) this.elapsed = (Date.now() - this.t0) / 1000;
-      this.target = score({
-        pool: this.pool,
-        steps: this.steps,
-        par: this.maze.par,
-        revisits: this.revisits,
-        elapsedSeconds: this.elapsed,
-        wallHits: this.hits,
-      });
+      if (this.elapsed >= TIME_LIMIT_SECONDS) {
+        this.timeUp();
+      } else {
+        this.target = score({
+          pool: this.pool,
+          steps: this.steps,
+          par: this.maze.par,
+          revisits: this.revisits,
+          elapsedSeconds: this.elapsed,
+          wallHits: this.hits,
+        });
+      }
     } else if (this.mode === "solving") {
       for (let i = 0; i < this.solverSpeed; i++) {
         if (this.mode === "solving") this.solverStep();
@@ -550,15 +457,15 @@ export class RecurseEngine {
   private pushHud(): void {
     const live = this.mode !== "attract";
     const sc = live ? Math.round(this.disp) : this.pool;
-    const mm = Math.floor((this.elapsed || 0) / 60);
-    const ss = Math.floor((this.elapsed || 0) % 60);
+    const remaining = Math.max(0, TIME_LIMIT_SECONDS - (this.elapsed || 0));
+    const mm = Math.floor(remaining / 60);
+    const ss = Math.floor(remaining % 60);
     const ready =
       this.mode === "play" &&
       this.readyUntil !== null &&
       this.frame < this.readyUntil;
 
     this.push({
-      leader: this.leaderStr,
       score: String(Math.max(0, sc)).padStart(6, "0"),
       winScore: String(Math.max(0, Math.round(this.disp || 0))).padStart(6, "0"),
       par: this.maze.parReady ? String(this.maze.par).padStart(2, "0") : "--",
@@ -570,20 +477,16 @@ export class RecurseEngine {
       isReady: ready,
       isPlaying: this.mode === "play" && !ready,
       isWin: this.mode === "won" && this.winFrame > 12,
-      isInitials: this.mode === "initials",
-      isBoard: this.mode === "board",
       isSolving: this.mode === "solving",
       isForfeit: this.mode === "forfeit",
+      isTimeUp: this.mode === "forfeit" && this.forfeitCause === "time",
       winMsg:
         this.mode === "won"
-          ? this.eligible
-            ? "par plus ten or better — touch to sign the board"
-            : "you made it out — claim your giveaway at the booth"
+          ? "you made it out — claim your giveaway at the booth"
           : "",
       coinTone:
         this.mode === "attract" ? COIN_TONES[this.frame % 4] : "player",
       oneUpOn: this.mode === "play" ? this.frame % 12 < 6 : true,
-      boardCueOn: this.mode === "board" ? this.frame % 6 < 3 : true,
     });
   }
 
@@ -594,10 +497,6 @@ export class RecurseEngine {
   private push(o: Partial<HudState>): void {
     let diff = false;
     for (const k in o) {
-      if (k === "boardRows") {
-        diff = true;
-        break;
-      }
       const key = k as keyof HudState;
       if ((this.hud[key] as unknown) !== (o[key] as unknown)) {
         diff = true;
