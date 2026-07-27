@@ -1,0 +1,759 @@
+<!--
+RECURSE — APPROVED CLAUDE DESIGN SOURCE (v2), 2026-07-27
+This is the ground truth for the booth game. It is a Claude Design component
+(DCLogic class + templated markup), NOT runnable React. Port it to the repo.
+Palette, geometry, timing, scoring constants and draw order in here are final.
+-->
+</helmet>
+<div style="position:fixed;inset:0;background:#0E0B1C;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;">
+<div ref="{{ stageRef }}" data-screen-label="Booth" style="position:relative;flex:0 0 auto;width:1280px;height:800px;background:#17132B;overflow:hidden;border-radius:22px;transform-origin:center center;box-shadow:0 0 0 14px #0E0B1C,0 0 0 17px #241E3C,0 24px 80px rgba(0,0,0,.8);">
+
+<div style="position:absolute;top:0;left:0;right:0;height:40px;background:#0E0B1C;display:flex;align-items:center;gap:18px;padding:0 18px;">
+<div style="flex:1 1 auto;height:24px;background-image:repeating-conic-gradient(#3A3159 0% 25%,#0E0B1C 0% 50%);background-size:16px 16px;"></div>
+<span style="font-family:'Press Start 2P',monospace;font-size:18px;color:#F2EFE6;letter-spacing:4px;">RECURSE</span>
+<div style="flex:1 1 auto;height:24px;background-image:repeating-conic-gradient(#3A3159 0% 25%,#0E0B1C 0% 50%);background-size:16px 16px;"></div>
+</div>
+
+<div style="position:absolute;top:40px;left:0;right:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:2px solid #3A3159;">
+<span style="font-family:'Press Start 2P',monospace;font-size:10px;color:#A388D6;letter-spacing:2px;">ITEC FRESHSTART</span>
+<div style="display:flex;flex-direction:column;align-items:center;gap:7px;">
+<span style="font-family:'Press Start 2P',monospace;font-size:10px;color:#A388D6;letter-spacing:2px;">HI-SCORE</span>
+<span style="font-family:'Press Start 2P',monospace;font-size:16px;color:#F2EFE6;letter-spacing:2px;">{{ leader }}</span>
+</div>
+<span style="font-family:'Press Start 2P',monospace;font-size:10px;color:#A388D6;letter-spacing:2px;">{{ seedStr }}</span>
+</div>
+
+<div style="position:absolute;top:104px;bottom:64px;left:0;right:0;display:flex;align-items:stretch;">
+
+<div style="width:332px;flex:0 0 332px;padding:22px 24px;display:flex;flex-direction:column;justify-content:space-between;">
+<div>
+<sc-if value="{{ isPlaying }}" hint-placeholder-val="{{ false }}">
+<div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#FFD23F;letter-spacing:2px;margin-bottom:14px;animation:rcBlink 1s steps(1,end) infinite;">1UP</div>
+</sc-if>
+<sc-if value="{{ notPlaying }}" hint-placeholder-val="{{ true }}">
+<div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#A388D6;letter-spacing:2px;margin-bottom:14px;">1UP</div>
+</sc-if>
+<div style="font-family:'Press Start 2P',monospace;font-size:42px;line-height:1;letter-spacing:1px;color:#F2EFE6;">{{ score }}</div>
+<div style="height:2px;background:#3A3159;margin:22px 0;"></div>
+<div style="display:flex;gap:36px;">
+<div>
+<div style="font-family:'Press Start 2P',monospace;font-size:10px;color:#A388D6;letter-spacing:2px;margin-bottom:10px;">PAR</div>
+<div style="font-family:'Press Start 2P',monospace;font-size:22px;color:#3DF5C0;">{{ par }}</div>
+</div>
+<div>
+<div style="font-family:'Press Start 2P',monospace;font-size:10px;color:#A388D6;letter-spacing:2px;margin-bottom:10px;">STEPS</div>
+<div style="font-family:'Press Start 2P',monospace;font-size:22px;color:#FFD23F;">{{ steps }}</div>
+</div>
+</div>
+</div>
+<div>
+<div style="height:2px;background:#3A3159;margin-bottom:16px;"></div>
+<div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#A388D6;letter-spacing:2px;">{{ statusLine }}</div>
+</div>
+</div>
+
+<div style="flex:1 1 auto;display:flex;align-items:center;justify-content:center;position:relative;">
+<canvas ref="{{ canvasRef }}" width="1232" height="1232" sc-camel-on-pointer-down="{{ onPointerDown }}" sc-camel-on-pointer-move="{{ onPointerMove }}" sc-camel-on-pointer-up="{{ onPointerUp }}" sc-camel-on-pointer-cancel="{{ onPointerUp }}" style="width:616px;height:616px;display:block;image-rendering:pixelated;"></canvas>
+
+<sc-if value="{{ isAttract }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;pointer-events:none;">
+<div style="background:#17132B;border:2px solid #3A3159;padding:18px 26px;">
+<span style="font-family:'Press Start 2P',monospace;font-size:24px;letter-spacing:2px;color:#FFD23F;animation:rcCycle .3333s steps(1,end) infinite;">INSERT COIN</span>
+</div>
+<div style="background:#17132B;padding:6px 10px;font-size:12px;letter-spacing:.24em;color:#A388D6;">touch anywhere or press WASD to start</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isReady }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+<div style="background:#17132B;border:2px solid #FFD23F;padding:20px 30px;">
+<span style="font-family:'Press Start 2P',monospace;font-size:28px;color:#FFD23F;letter-spacing:3px;">READY?</span>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSolving }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:0;right:0;top:0;display:flex;justify-content:center;pointer-events:none;">
+<div style="background:#17132B;border-bottom:2px solid #FF3E8A;padding:10px 18px;font-family:'Press Start 2P',monospace;font-size:11px;letter-spacing:2px;color:#FF3E8A;">AUTO SOLVE</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isWin }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">
+<div style="background:#17132B;border:2px solid #3DF5C0;padding:32px 38px;display:flex;flex-direction:column;align-items:center;gap:20px;min-width:470px;">
+<div style="font-family:'Press Start 2P',monospace;font-size:28px;color:#3DF5C0;letter-spacing:3px;">STAGE CLEAR</div>
+<div style="font-family:'Press Start 2P',monospace;font-size:52px;line-height:1;color:#F2EFE6;letter-spacing:2px;">{{ winScore }}</div>
+<div style="display:flex;gap:26px;font-family:'Press Start 2P',monospace;font-size:11px;letter-spacing:1px;color:#A388D6;">
+<span>STEPS {{ steps }}</span>
+<span>PAR {{ par }}</span>
+<span>TIME {{ time }}</span>
+</div>
+<div style="height:2px;width:100%;background:#3A3159;"></div>
+<div style="font-size:13px;letter-spacing:.14em;color:#F2EFE6;text-align:center;max-width:400px;">{{ winMsg }}</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isForfeit }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+<div style="background:#17132B;border:2px solid #FF3E8A;padding:24px 30px;display:flex;flex-direction:column;align-items:center;gap:14px;">
+<span style="font-family:'Press Start 2P',monospace;font-size:30px;color:#FF3E8A;letter-spacing:3px;">GAME OVER</span>
+<span style="font-family:'Press Start 2P',monospace;font-size:11px;letter-spacing:2px;color:#A388D6;">SOLVED BY RECURSION</span>
+<span style="font-size:12px;letter-spacing:.14em;color:#A388D6;">{{ forfeitStat }}</span>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isInitials }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(23,19,43,.94);">
+<div style="font-family:'Press Start 2P',monospace;font-size:11px;letter-spacing:2px;color:#A388D6;margin-bottom:26px;">ENTER YOUR INITIALS</div>
+<div style="display:flex;gap:18px;">
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+<button sc-camel-on-click="{{ up0 }}" style="width:72px;height:64px;border:2px solid #3A3159;color:#A388D6;font-size:20px;" style-active="background:#F2EFE6;color:#17132B;transform:translateY(4px);">▲</button>
+<div style="width:72px;height:76px;display:flex;align-items:center;justify-content:center;border:2px solid #FFD23F;font-family:'Press Start 2P',monospace;font-size:34px;color:#FFD23F;">{{ i0 }}</div>
+<button sc-camel-on-click="{{ down0 }}" style="width:72px;height:64px;border:2px solid #3A3159;color:#A388D6;font-size:20px;" style-active="background:#F2EFE6;color:#17132B;transform:translateY(4px);">▼</button>
+</div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+<button sc-camel-on-click="{{ up1 }}" style="width:72px;height:64px;border:2px solid #3A3159;color:#A388D6;font-size:20px;" style-active="background:#F2EFE6;color:#17132B;transform:translateY(4px);">▲</button>
+<div style="width:72px;height:76px;display:flex;align-items:center;justify-content:center;border:2px solid #FFD23F;font-family:'Press Start 2P',monospace;font-size:34px;color:#FFD23F;">{{ i1 }}</div>
+<button sc-camel-on-click="{{ down1 }}" style="width:72px;height:64px;border:2px solid #3A3159;color:#A388D6;font-size:20px;" style-active="background:#F2EFE6;color:#17132B;transform:translateY(4px);">▼</button>
+</div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+<button sc-camel-on-click="{{ up2 }}" style="width:72px;height:64px;border:2px solid #3A3159;color:#A388D6;font-size:20px;" style-active="background:#F2EFE6;color:#17132B;transform:translateY(4px);">▲</button>
+<div style="width:72px;height:76px;display:flex;align-items:center;justify-content:center;border:2px solid #FFD23F;font-family:'Press Start 2P',monospace;font-size:34px;color:#FFD23F;">{{ i2 }}</div>
+<button sc-camel-on-click="{{ down2 }}" style="width:72px;height:64px;border:2px solid #3A3159;color:#A388D6;font-size:20px;" style-active="background:#F2EFE6;color:#17132B;transform:translateY(4px);">▼</button>
+</div>
+</div>
+<button sc-camel-on-click="{{ submitInitials }}" style="margin-top:30px;height:64px;padding:0 40px;border:2px solid #3DF5C0;color:#3DF5C0;font-family:'Press Start 2P',monospace;font-size:16px;letter-spacing:2px;" style-active="background:#3DF5C0;color:#17132B;transform:translateY(4px);">ENTER</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isBoard }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;background:rgba(23,19,43,.95);padding:0 46px;">
+<div style="font-family:'Press Start 2P',monospace;font-size:18px;color:#F2EFE6;letter-spacing:3px;margin-bottom:8px;">HI-SCORES</div>
+<div style="font-size:11px;letter-spacing:.2em;color:#A388D6;margin-bottom:18px;">resets at midnight — same maze for everyone today</div>
+<sc-for list="{{ boardRows }}" as="row" hint-placeholder-count="6">
+<div style="display:flex;align-items:center;gap:18px;padding:9px 0;border-bottom:1px solid #3A3159;">
+<span style="width:32px;font-family:'Press Start 2P',monospace;font-size:11px;color:#A388D6;">{{ row.rank }}</span>
+<span style="flex:1 1 auto;font-family:'Press Start 2P',monospace;font-size:15px;color:#F2EFE6;">{{ row.name }}</span>
+<span style="font-family:'Press Start 2P',monospace;font-size:10px;color:#A388D6;letter-spacing:1px;">{{ row.detail }}</span>
+<span style="width:128px;text-align:right;font-family:'Press Start 2P',monospace;font-size:15px;color:#FFD23F;">{{ row.score }}</span>
+</div>
+</sc-for>
+<div style="margin-top:22px;font-family:'Press Start 2P',monospace;font-size:11px;letter-spacing:2px;color:#3DF5C0;animation:rcBlinkFast 1s steps(1,end) infinite;">TOUCH TO CONTINUE</div>
+</div>
+</sc-if>
+</div>
+
+<div style="width:332px;flex:0 0 332px;padding:22px 24px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;">
+<div style="text-align:right;width:100%;">
+<div style="font-family:'Press Start 2P',monospace;font-size:10px;color:#A388D6;letter-spacing:2px;margin-bottom:14px;">TIME</div>
+<div style="font-family:'Press Start 2P',monospace;font-size:34px;color:#F2EFE6;letter-spacing:1px;">{{ time }}</div>
+<div style="height:2px;background:#3A3159;margin:22px 0 14px;"></div>
+<div style="font-family:'Press Start 2P',monospace;font-size:10px;color:#A388D6;letter-spacing:2px;line-height:1.9;">REVISIT {{ revisitStr }}</div>
+</div>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:14px;">
+<div style="display:grid;grid-template-columns:repeat(3,72px);grid-template-rows:repeat(2,72px);gap:6px;">
+<button sc-camel-on-click="{{ moveUp }}" style="grid-column:2;grid-row:1;width:72px;height:72px;border:2px solid #3A3159;color:#F2EFE6;font-size:22px;display:flex;align-items:center;justify-content:center;" style-active="background:#FFD23F;color:#17132B;transform:translateY(4px);">▲</button>
+<button sc-camel-on-click="{{ moveLeft }}" style="grid-column:1;grid-row:2;width:72px;height:72px;border:2px solid #3A3159;color:#F2EFE6;font-size:22px;display:flex;align-items:center;justify-content:center;" style-active="background:#FFD23F;color:#17132B;transform:translateY(4px);">◀</button>
+<button sc-camel-on-click="{{ moveDown }}" style="grid-column:2;grid-row:2;width:72px;height:72px;border:2px solid #3A3159;color:#F2EFE6;font-size:22px;display:flex;align-items:center;justify-content:center;" style-active="background:#FFD23F;color:#17132B;transform:translateY(4px);">▼</button>
+<button sc-camel-on-click="{{ moveRight }}" style="grid-column:3;grid-row:2;width:72px;height:72px;border:2px solid #3A3159;color:#F2EFE6;font-size:22px;display:flex;align-items:center;justify-content:center;" style-active="background:#FFD23F;color:#17132B;transform:translateY(4px);">▶</button>
+</div>
+<div style="font-size:11px;letter-spacing:.18em;color:#A388D6;text-align:right;">drag on the maze or use WASD</div>
+</div>
+</div>
+</div>
+
+<div style="position:absolute;bottom:0;left:0;right:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-top:2px solid #3A3159;">
+<div style="display:flex;align-items:center;gap:14px;">
+<button sc-camel-on-click="{{ onSolve }}" style="height:56px;padding:0 22px;border:2px solid #FF3E8A;color:#FF3E8A;font-family:'Press Start 2P',monospace;font-size:13px;letter-spacing:1px;display:flex;align-items:center;" style-active="background:#FF3E8A;color:#17132B;transform:translateY(4px);">SOLVE IT</button>
+<span style="font-family:'Press Start 2P',monospace;font-size:10px;letter-spacing:1px;color:#A388D6;">FORFEITS RUN</span>
+</div>
+<div style="font-family:'Press Start 2P',monospace;font-size:11px;letter-spacing:3px;color:#A388D6;">STAGE 01</div>
+<div style="display:flex;align-items:center;gap:16px;">
+<span style="font-family:'Press Start 2P',monospace;font-size:10px;letter-spacing:1px;color:#A388D6;">CREDITS 01</span>
+<span style="font-family:'Press Start 2P',monospace;font-size:10px;letter-spacing:1px;color:#A388D6;">MADE BY</span>
+<div style="width:48px;height:48px;border:2px dashed #8B6BC4;display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:8px;color:#A388D6;">LOGO</div>
+</div>
+</div>
+
+<div ref="{{ grainRef }}" style="position:absolute;inset:0;pointer-events:none;opacity:.05;mix-blend-mode:screen;"></div>
+<div style="position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(to bottom,rgba(0,0,0,.26) 0px,rgba(0,0,0,.26) 1px,rgba(0,0,0,0) 1px,rgba(0,0,0,0) 3px);"></div>
+<div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 100% at 50% 50%,rgba(0,0,0,0) 52%,rgba(0,0,0,.40) 100%);"></div>
+<div style="position:absolute;inset:0;pointer-events:none;border-radius:22px;box-shadow:inset 0 0 44px rgba(0,0,0,.55),inset 0 0 2px rgba(242,239,230,.14);"></div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:800},&quot;gridSize&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:16,&quot;min&quot;:10,&quot;max&quot;:24,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Game&quot;,&quot;unit&quot;:&quot; cells&quot;},&quot;solverSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:2,&quot;min&quot;:1,&quot;max&quot;:6,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Game&quot;,&quot;unit&quot;:&quot; cells/frame&quot;},&quot;seedMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;daily&quot;,&quot;random&quot;],&quot;default&quot;:&quot;daily&quot;,&quot;tsType&quot;:&quot;'daily' | 'random'&quot;,&quot;section&quot;:&quot;Game&quot;},&quot;scorePool&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:100000,&quot;min&quot;:10000,&quot;max&quot;:999999,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Game&quot;}}">
+class Component extends DCLogic {
+  state = {
+    score: '100000', par: '--', steps: '000', time: '00:00', revisitStr: '000',
+    leader: '--- ------', seedStr: '--------', winScore: '000000', winMsg: '', forfeitStat: '',
+    statusLine: 'DEMO', i0: 'A', i1: 'A', i2: 'A', boardRows: [],
+    isAttract: true, isReady: false, isWin: false, isInitials: false, isBoard: false,
+    isSolving: false, isForfeit: false, isPlaying: false, notPlaying: true
+  };
+  canvasRef = React.createRef();
+  stageRef = React.createRef();
+  grainRef = React.createRef();
+  PAL = {
+    screen: '#17132B', wallBase: '#3A3159', bands: ['#4C3F73', '#3A3159', '#2E2749', '#241E3C'],
+    player: '#FFD23F', goal: '#3DF5C0', rec: '#FF3E8A', ghost: '#8B6BC4', bone: '#F2EFE6', node: '#5FD3FF'
+  };
+  SIZE = 616;
+  SPRITE = [
+    ['..####..', '.######.', '########', '########', '##.##.##', '########', '.#.##.#.', '#......#'],
+    ['..####..', '.######.', '########', '########', '##.##.##', '########', '#.####.#', '.#....#.']
+  ];
+
+  componentDidMount() {
+    this.reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.frame = 0;
+    this.initials = [0, 0, 0];
+    this.lastInput = Date.now();
+    this.pointer = null;
+    this.makeGrain();
+    this.makeDither();
+    this.fit();
+    window.addEventListener('resize', this.fit);
+    window.addEventListener('keydown', this.onKey);
+    const d = new Date();
+    this.today = '' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+    this.startAttract();
+    this.last = performance.now();
+    this.acc = 0;
+    this.raf = requestAnimationFrame(this.tick);
+  }
+  componentWillUnmount() {
+    cancelAnimationFrame(this.raf);
+    window.removeEventListener('resize', this.fit);
+    window.removeEventListener('keydown', this.onKey);
+  }
+
+  fit = () => {
+    const el = this.stageRef.current; if (!el) return;
+    const s = Math.min(window.innerWidth / 1310, window.innerHeight / 830);
+    el.style.transform = 'scale(' + s.toFixed(4) + ')';
+  };
+  makeGrain() {
+    const el = this.grainRef.current; if (!el) return;
+    const c = document.createElement('canvas'); c.width = 96; c.height = 96;
+    const x = c.getContext('2d'); const img = x.createImageData(96, 96);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = 120 + Math.random() * 135;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
+    }
+    x.putImageData(img, 0, 0);
+    el.style.backgroundImage = 'url(' + c.toDataURL() + ')';
+    el.style.backgroundSize = '96px 96px';
+  }
+  makeDither() {
+    const c = document.createElement('canvas'); c.width = 4; c.height = 4;
+    const x = c.getContext('2d'); x.fillStyle = this.PAL.player;
+    const bayer = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+    for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) if (bayer[j][i] < 7) x.fillRect(i, j, 1, 1);
+    this.ditherSrc = c;
+  }
+
+  /* ---------- maze ---------- */
+  rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  seedFor(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  geometry() {
+    const N = Math.max(10, Math.min(24, Math.round(this.props.gridSize ?? 16)));
+    const P = Math.floor((this.SIZE - 8) / N);
+    const off = 8 + Math.floor((this.SIZE - (N * P + 8)) / 2);
+    return { N: N, P: P, pass: P - 8, off: off };
+  }
+  newMaze(seed) {
+    const g = this.geometry(); const N = g.N;
+    this.geo = g;
+    this.walls = new Uint8Array(N * N).fill(15);
+    this.seen = new Uint8Array(N * N);
+    this.band = null; this.opens = null; this.marks = null;
+    this.rand = this.rng(seed);
+    this.stack = [0]; this.seen[0] = 1;
+    this.carving = true;
+    this.visits = new Uint16Array(N * N);
+    this.ghosts = new Set(); this.sstack = null; this.winPath = null;
+    this.hitEdge = null; this.hitUntil = -1; this.flash = null;
+  }
+  carveStep() {
+    const { N } = this.geo;
+    if (!this.stack.length) { this.carving = false; this.afterCarve(); return false; }
+    const cur = this.stack[this.stack.length - 1];
+    const x = cur % N, y = (cur / N) | 0;
+    const opts = [];
+    if (y > 0 && !this.seen[cur - N]) opts.push([1, cur - N, 4]);
+    if (x < N - 1 && !this.seen[cur + 1]) opts.push([2, cur + 1, 8]);
+    if (y < N - 1 && !this.seen[cur + N]) opts.push([4, cur + N, 1]);
+    if (x > 0 && !this.seen[cur - 1]) opts.push([8, cur - 1, 2]);
+    if (opts.length) {
+      const p = opts[(this.rand() * opts.length) | 0];
+      this.walls[cur] &= ~p[0]; this.walls[p[1]] &= ~p[2];
+      this.seen[p[1]] = 1; this.stack.push(p[1]);
+    } else this.stack.pop();
+    return true;
+  }
+  finishCarve() { let guard = 0; while (this.carving && guard++ < 80000) this.carveStep(); }
+  afterCarve() {
+    this.braid();
+    this.analyze();
+    this.par = this.shortest(0, this.geo.N * this.geo.N - 1).length - 1;
+    this.parReady = true;
+  }
+  braid() {
+    const { N } = this.geo;
+    for (let c = 0; c < N * N; c++) {
+      if (this.openCount(c) !== 1) continue;
+      if (this.rand() >= 0.45) continue;
+      const x = c % N, y = (c / N) | 0;
+      const closed = [];
+      if (y > 0 && (this.walls[c] & 1)) closed.push([1, c - N, 4]);
+      if (x < N - 1 && (this.walls[c] & 2)) closed.push([2, c + 1, 8]);
+      if (y < N - 1 && (this.walls[c] & 4)) closed.push([4, c + N, 1]);
+      if (x > 0 && (this.walls[c] & 8)) closed.push([8, c - 1, 2]);
+      if (!closed.length) continue;
+      const p = closed[(this.rand() * closed.length) | 0];
+      this.walls[c] &= ~p[0]; this.walls[p[1]] &= ~p[2];
+    }
+  }
+  openCount(c) {
+    const { N } = this.geo; const x = c % N, y = (c / N) | 0; let n = 0;
+    if (y > 0 && !(this.walls[c] & 1)) n++;
+    if (x < N - 1 && !(this.walls[c] & 2)) n++;
+    if (y < N - 1 && !(this.walls[c] & 4)) n++;
+    if (x > 0 && !(this.walls[c] & 8)) n++;
+    return n;
+  }
+  analyze() {
+    const n = this.geo.N * this.geo.N;
+    const dist = new Int32Array(n).fill(-1);
+    dist[0] = 0; const q = [0]; let max = 0;
+    for (let i = 0; i < q.length; i++) {
+      const c = q[i]; const nb = this.neighbors(c);
+      for (let k = 0; k < nb.length; k++) if (dist[nb[k]] < 0) { dist[nb[k]] = dist[c] + 1; if (dist[nb[k]] > max) max = dist[nb[k]]; q.push(nb[k]); }
+    }
+    this.band = new Uint8Array(n);
+    this.marks = new Uint8Array(n);
+    for (let c = 0; c < n; c++) {
+      const d = dist[c] < 0 ? max : dist[c];
+      this.band[c] = Math.min(3, Math.floor((d / (max + 1)) * 4));
+      const oc = this.openCount(c);
+      this.marks[c] = oc >= 3 ? 1 : (oc === 1 ? 2 : 0);
+    }
+  }
+  open(a, dir) { return (this.walls[a] & dir) === 0; }
+  neighbors(c) {
+    const { N } = this.geo; const x = c % N, y = (c / N) | 0; const out = [];
+    if (y > 0 && this.open(c, 1)) out.push(c - N);
+    if (x < N - 1 && this.open(c, 2)) out.push(c + 1);
+    if (y < N - 1 && this.open(c, 4)) out.push(c + N);
+    if (x > 0 && this.open(c, 8)) out.push(c - 1);
+    return out;
+  }
+  shortest(from, to) {
+    const n = this.geo.N * this.geo.N; const prev = new Int32Array(n).fill(-1);
+    const q = [from]; prev[from] = from;
+    for (let i = 0; i < q.length; i++) {
+      const c = q[i]; if (c === to) break;
+      const nb = this.neighbors(c);
+      for (let k = 0; k < nb.length; k++) if (prev[nb[k]] === -1) { prev[nb[k]] = c; q.push(nb[k]); }
+    }
+    const path = []; let c = to; let guard = 0;
+    while (c !== from && guard++ < n) { path.push(c); c = prev[c]; if (c < 0) return [from]; }
+    path.push(from); path.reverse(); return path;
+  }
+
+  /* ---------- modes ---------- */
+  startAttract() {
+    this.mode = 'attract';
+    this.parReady = false;
+    this.newMaze((Math.random() * 1e9) | 0);
+    this.pos = null; this.goal = null;
+    if (this.reduced) this.finishCarve();
+    this.attractHold = 0;
+    this.push({ statusLine: 'DEMO', winMsg: '', forfeitStat: '' });
+    this.refreshLeader();
+  }
+  startPlay() {
+    this.mode = 'play';
+    this.parReady = false;
+    const seed = (this.props.seedMode ?? 'daily') === 'daily'
+      ? this.seedFor('recurse-' + this.today + '-' + this.geometry().N)
+      : ((Math.random() * 1e9) | 0);
+    this.newMaze(seed);
+    if (this.reduced) this.finishCarve();
+    const N = this.geo.N;
+    this.start = 0; this.goal = N * N - 1;
+    this.pos = 0; this.visits[0] = 1;
+    this.steps = 0; this.hits = 0; this.revisits = 0; this.usedSolve = false;
+    this.t0 = null; this.elapsed = 0;
+    this.readyUntil = null; this.moveAnim = 0; this.lastMoveFrame = -99;
+    this.disp = this.pool(); this.target = this.pool();
+    this.push({ statusLine: 'PLAYER 1', winMsg: '', forfeitStat: '' });
+  }
+  pool() { return Math.max(1000, Math.round(this.props.scorePool ?? 100000)); }
+  locked() { return this.carving || (this.readyUntil !== null && this.frame < this.readyUntil); }
+  beginSolve() {
+    if (this.mode !== 'play' || this.carving) return;
+    this.usedSolve = true; this.mode = 'solving';
+    this.sstack = [this.start];
+    this.sseen = new Uint8Array(this.geo.N * this.geo.N); this.sseen[this.start] = 1;
+    this.ghosts.clear();
+    this.push({ statusLine: 'AUTO SOLVE' });
+    if (this.reduced) { for (let i = 0; i < 3; i++) { let n = 0; while (this.mode === 'solving' && n++ < 4000) this.solveStep(); } }
+  }
+  solveStep() {
+    const top = this.sstack[this.sstack.length - 1];
+    if (top === this.goal) { this.finishSolve(); return; }
+    const nb = this.neighbors(top).filter(c => !this.sseen[c]);
+    if (nb.length) { const c = nb[0]; this.sseen[c] = 1; this.sstack.push(c); }
+    else { this.ghosts.add(this.sstack.pop()); if (!this.sstack.length) this.finishSolve(); }
+  }
+  finishSolve() {
+    this.mode = 'forfeit'; this.holdFrames = 0;
+    this.push({
+      statusLine: 'GAME OVER', isForfeit: true,
+      forfeitStat: this.ghosts.size + ' dead ends abandoned / ' + (this.sstack ? this.sstack.length : 0) + ' on path'
+    });
+  }
+  win() {
+    this.mode = 'won'; this.winFrame = 0;
+    this.finalScore = this.target; this.sweep = 0;
+    this.winPath = this.shortest(this.start, this.goal);
+    this.disp = 0;
+    this.eligible = !this.usedSolve && this.steps <= this.par + 10;
+    this.push({ statusLine: 'STAGE CLEAR' });
+  }
+
+  /* ---------- input ---------- */
+  wake() { this.lastInput = Date.now(); }
+  anyInput() {
+    this.wake();
+    if (this.mode === 'attract') { this.startPlay(); return true; }
+    if (this.mode === 'forfeit' && this.holdFrames > 12) { this.startAttract(); return true; }
+    if (this.mode === 'board') { this.startAttract(); return true; }
+    if (this.mode === 'won' && this.winFrame > 40 && !this.eligible) { this.startAttract(); return true; }
+    return false;
+  }
+  onKey = (e) => {
+    const k = e.key.toLowerCase();
+    const map = { w: [0, -1], arrowup: [0, -1], s: [0, 1], arrowdown: [0, 1], a: [-1, 0], arrowleft: [-1, 0], d: [1, 0], arrowright: [1, 0] };
+    if (map[k] || k === ' ' || k === 'enter') e.preventDefault();
+    if (this.anyInput()) return;
+    if (this.mode === 'won' && this.eligible && (k === ' ' || k === 'enter')) { this.openInitials(); return; }
+    if (this.mode === 'initials') {
+      if (k === 'enter') this.submitInitials();
+      else if (map[k]) { const d = map[k]; if (d[1]) this.bump(this.slot || 0, -d[1]); else this.slot = Math.max(0, Math.min(2, (this.slot || 0) + d[0])); }
+      return;
+    }
+    if (map[k]) this.move(map[k][0], map[k][1]);
+  };
+  onPointerDown = (e) => {
+    e.preventDefault();
+    if (this.anyInput()) return;
+    if (this.mode === 'won' && this.eligible && this.winFrame > 40) { this.openInitials(); return; }
+    const p = this.local(e); if (!p) return;
+    this.pointer = p; this.repeatAt = this.frame;
+    this.steer(true);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { }
+  };
+  onPointerMove = (e) => { if (!this.pointer) return; const p = this.local(e); if (p) this.pointer = p; };
+  onPointerUp = () => { this.pointer = null; };
+  local(e) {
+    const c = this.canvasRef.current; if (!c) return null;
+    const r = c.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * (this.SIZE / r.width), y: (e.clientY - r.top) * (this.SIZE / r.height) };
+  }
+  steer(force) {
+    if (this.mode !== 'play' || !this.pointer || this.locked()) return;
+    const g = this.geo, N = g.N;
+    const cx = g.off + (this.pos % N) * g.P + g.pass / 2;
+    const cy = g.off + (((this.pos / N) | 0)) * g.P + g.pass / 2;
+    const dx = this.pointer.x - cx, dy = this.pointer.y - cy;
+    if (!force && Math.abs(dx) < g.P * 0.45 && Math.abs(dy) < g.P * 0.45) return;
+    if (Math.abs(dx) >= Math.abs(dy)) this.move(dx > 0 ? 1 : -1, 0); else this.move(0, dy > 0 ? 1 : -1);
+  }
+  move(dx, dy) {
+    this.wake();
+    if (this.mode !== 'play' || this.locked()) return;
+    const N = this.geo.N; const x = this.pos % N, y = (this.pos / N) | 0;
+    const nx = x + dx, ny = y + dy;
+    const dir = dx === 1 ? 2 : dx === -1 ? 8 : dy === 1 ? 4 : 1;
+    if (nx < 0 || ny < 0 || nx >= N || ny >= N || !this.open(this.pos, dir)) {
+      this.hitEdge = { c: this.pos, dir: dir }; this.hitUntil = this.frame + 2; this.hits++;
+      return;
+    }
+    if (this.t0 === null) this.t0 = Date.now();
+    this.pos = ny * N + nx; this.steps++;
+    this.lastMoveFrame = this.frame;
+    if (this.visits[this.pos] >= 1) {
+      this.revisits++;
+      this.flash = { text: '-' + this.revisitCost(), until: this.frame + 2, c: this.pos };
+    }
+    this.visits[this.pos] = Math.min(9, this.visits[this.pos] + 1);
+    if (this.pos === this.goal) this.win();
+  }
+  revisitCost() { return 1200; }
+  moveUp = () => this.move(0, -1);
+  moveDown = () => this.move(0, 1);
+  moveLeft = () => this.move(-1, 0);
+  moveRight = () => this.move(1, 0);
+  onSolve = () => { this.wake(); if (this.mode === 'attract') { this.startPlay(); this.finishCarve(); } this.beginSolve(); };
+
+  /* ---------- leaderboard ---------- */
+  boardKey() { return 'recurse.board.' + this.today; }
+  loadBoard() { try { return JSON.parse(localStorage.getItem(this.boardKey()) || '[]'); } catch (e) { return []; } }
+  saveBoard(b) { try { localStorage.setItem(this.boardKey(), JSON.stringify(b.slice(0, 10))); } catch (e) { } }
+  refreshLeader() {
+    const b = this.loadBoard();
+    this.push({ leader: b.length ? b[0].name + ' ' + String(b[0].score).padStart(6, '0') : '--- ------' });
+  }
+  openInitials() { this.mode = 'initials'; this.slot = 0; this.push({ statusLine: 'ENTER NAME' }); }
+  bump(i, d) {
+    this.initials[i] = (this.initials[i] + d + 26) % 26;
+    const L = n => String.fromCharCode(65 + n);
+    this.push({ i0: L(this.initials[0]), i1: L(this.initials[1]), i2: L(this.initials[2]) });
+  }
+  up0 = () => { this.wake(); this.slot = 0; this.bump(0, 1); };
+  down0 = () => { this.wake(); this.slot = 0; this.bump(0, -1); };
+  up1 = () => { this.wake(); this.slot = 1; this.bump(1, 1); };
+  down1 = () => { this.wake(); this.slot = 1; this.bump(1, -1); };
+  up2 = () => { this.wake(); this.slot = 2; this.bump(2, 1); };
+  down2 = () => { this.wake(); this.slot = 2; this.bump(2, -1); };
+  submitInitials = () => {
+    this.wake();
+    const name = this.initials.map(n => String.fromCharCode(65 + n)).join('');
+    const b = this.loadBoard();
+    b.push({ name: name, score: this.finalScore, steps: this.steps, at: Date.now() });
+    b.sort((p, q) => q.score - p.score);
+    this.saveBoard(b);
+    this.showBoard();
+  };
+  showBoard() {
+    this.mode = 'board';
+    const b = this.loadBoard();
+    this.push({
+      statusLine: 'HI-SCORES',
+      boardRows: b.slice(0, 10).map((r, i) => ({
+        rank: String(i + 1).padStart(2, '0'), name: r.name,
+        detail: r.steps + ' STEPS', score: String(r.score).padStart(6, '0')
+      }))
+    });
+    this.refreshLeader();
+  }
+
+  /* ---------- loop ---------- */
+  tick = (t) => {
+    const step = 1000 / 12;
+    this.acc += Math.min(250, t - this.last); this.last = t;
+    let guard = 0;
+    while (this.acc >= step && guard++ < 4) { this.acc -= step; this.frame++; this.update(); }
+    this.draw();
+    this.raf = requestAnimationFrame(this.tick);
+  };
+  update() {
+    if (this._gs !== (this.props.gridSize ?? 16)) { this._gs = this.props.gridSize ?? 16; this.startAttract(); }
+    if (this.mode !== 'attract' && Date.now() - this.lastInput > 30000) this.startAttract();
+
+    if (this.mode === 'attract') {
+      if (this.carving) { for (let i = 0; i < 12; i++) if (this.carving) this.carveStep(); }
+      else { this.attractHold++; if (this.attractHold > 60) this.startAttract(); }
+    } else if (this.carving) {
+      for (let i = 0; i < 14; i++) if (this.carving) this.carveStep();
+      if (!this.carving) this.readyUntil = this.frame + 12;
+    } else if (this.mode === 'play') {
+      if (this.pointer && this.frame - this.repeatAt >= 2) { this.repeatAt = this.frame; this.steer(false); }
+      if (this.t0) this.elapsed = (Date.now() - this.t0) / 1000;
+      const over = Math.max(0, this.steps - this.par);
+      this.target = Math.max(0, Math.min(999999,
+        this.pool() - over * 500 - this.revisits * this.revisitCost() - Math.floor(this.elapsed) * 120 - this.hits * 900));
+    } else if (this.mode === 'solving') {
+      const sp = Math.max(1, Math.round(this.props.solverSpeed ?? 2));
+      for (let i = 0; i < sp; i++) if (this.mode === 'solving') this.solveStep();
+    } else if (this.mode === 'forfeit') {
+      this.holdFrames++;
+      if (this.holdFrames > 110) this.startAttract();
+    } else if (this.mode === 'won') {
+      this.winFrame++;
+      if (this.winFrame > 3) this.sweep = Math.min(this.winPath.length, this.sweep + 3);
+      if (this.winFrame > 8) this.disp = Math.min(this.finalScore, this.disp + Math.max(1, Math.ceil(this.finalScore / 22)));
+      if (this.winFrame > 400) this.startAttract();
+    }
+
+    if (this.mode === 'play' || this.mode === 'solving') {
+      const d = this.target - this.disp;
+      this.disp += d === 0 ? 0 : (d > 0 ? Math.ceil(d / 5) : Math.floor(d / 5));
+    }
+
+    const live = this.mode !== 'attract';
+    const sc = live ? Math.round(this.disp) : this.pool();
+    const mm = Math.floor((this.elapsed || 0) / 60), ss = Math.floor((this.elapsed || 0) % 60);
+    const ready = this.mode === 'play' && this.readyUntil !== null && this.frame < this.readyUntil;
+    this.push({
+      score: String(Math.max(0, sc)).padStart(6, '0'),
+      winScore: String(Math.max(0, Math.round(this.disp || 0))).padStart(6, '0'),
+      par: this.parReady ? String(this.par).padStart(2, '0') : '--',
+      steps: String(live ? this.steps : 0).padStart(3, '0'),
+      revisitStr: String(live ? (this.revisits || 0) : 0).padStart(3, '0'),
+      time: String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0'),
+      seedStr: (this.props.seedMode ?? 'daily') === 'daily' ? this.today : 'RANDOM',
+      isAttract: this.mode === 'attract',
+      isReady: ready,
+      isPlaying: this.mode === 'play' && !ready,
+      notPlaying: !(this.mode === 'play' && !ready),
+      isWin: this.mode === 'won' && this.winFrame > 12,
+      isInitials: this.mode === 'initials',
+      isBoard: this.mode === 'board',
+      isSolving: this.mode === 'solving',
+      isForfeit: this.mode === 'forfeit',
+      winMsg: this.mode === 'won' ? (this.eligible ? 'par plus ten or better \u2014 touch to sign the board' : 'you made it out \u2014 claim your giveaway at the booth') : ''
+    });
+  }
+  push(o) {
+    let diff = false;
+    for (const k in o) { if (k === 'boardRows') { diff = true; break; } if (this.state[k] !== o[k]) { diff = true; break; } }
+    if (diff) this.setState(o);
+  }
+
+  /* ---------- draw ---------- */
+  draw() {
+    const cv = this.canvasRef.current; if (!cv || !this.geo) return;
+    const ctx = cv.getContext('2d');
+    const g = this.geo, N = g.N, P = g.P, W = g.pass, C = this.PAL;
+    if (!this.dither) this.dither = ctx.createPattern(this.ditherSrc, 'repeat');
+    ctx.setTransform(2, 0, 0, 2, 0, 0);
+    ctx.fillStyle = C.bands[3]; ctx.fillRect(0, 0, this.SIZE, this.SIZE);
+    const cellX = c => g.off + (c % N) * P, cellY = c => g.off + (((c / N) | 0)) * P;
+
+    for (let c = 0; c < N * N; c++) {
+      if (!this.seen[c]) continue;
+      ctx.fillStyle = this.band ? C.bands[this.band[c]] : C.wallBase;
+      ctx.fillRect(cellX(c) - 4, cellY(c) - 4, P, P);
+    }
+    ctx.fillStyle = C.screen;
+    for (let c = 0; c < N * N; c++) {
+      if (!this.seen[c]) continue;
+      const x = cellX(c), y = cellY(c);
+      ctx.fillRect(x, y, W, W);
+      if ((c % N) < N - 1 && this.open(c, 2)) ctx.fillRect(x + W, y, 8, W);
+      if (((c / N) | 0) < N - 1 && this.open(c, 4)) ctx.fillRect(x, y + W, W, 8);
+    }
+
+    if (this.marks) {
+      const m = 6, h = Math.floor((W - m) / 2);
+      for (let c = 0; c < N * N; c++) {
+        if (!this.marks[c]) continue;
+        const x = cellX(c) + h, y = cellY(c) + h;
+        if (this.marks[c] === 1) { ctx.fillStyle = C.node; ctx.fillRect(x, y, m, m); }
+        else { ctx.fillStyle = C.ghost; ctx.fillRect(x + 2, y, 2, m); ctx.fillRect(x, y + 2, m, 2); }
+      }
+    }
+
+    if (this.hitEdge && this.frame <= this.hitUntil) {
+      const c = this.hitEdge.c, d = this.hitEdge.dir, x = cellX(c), y = cellY(c);
+      ctx.fillStyle = C.rec;
+      if (d === 2) ctx.fillRect(x + W, y, 8, W);
+      else if (d === 8) ctx.fillRect(x - 8, y, 8, W);
+      else if (d === 4) ctx.fillRect(x, y + W, W, 8);
+      else ctx.fillRect(x, y - 8, W, 8);
+    }
+
+    if (this.ghosts && this.ghosts.size) {
+      ctx.save(); ctx.strokeStyle = C.ghost; ctx.lineWidth = 2;
+      this.ghosts.forEach(c => {
+        const x = cellX(c), y = cellY(c);
+        ctx.save(); ctx.beginPath(); ctx.rect(x, y, W, W); ctx.clip();
+        ctx.beginPath();
+        for (let k = -W; k < W; k += 7) { ctx.moveTo(x + k, y + W); ctx.lineTo(x + k + W, y); }
+        ctx.stroke(); ctx.restore();
+      });
+      ctx.restore();
+    }
+
+    if (this.sstack && this.sstack.length && (this.mode === 'solving' || this.mode === 'forfeit')) {
+      ctx.save(); ctx.shadowColor = C.rec; ctx.shadowBlur = 10;
+      ctx.strokeStyle = C.rec; ctx.lineWidth = Math.max(4, W * 0.34); ctx.lineJoin = 'miter'; ctx.lineCap = 'square';
+      ctx.beginPath();
+      for (let i = 0; i < this.sstack.length; i++) {
+        const c = this.sstack[i], x = cellX(c) + W / 2, y = cellY(c) + W / 2;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      const h = this.sstack[this.sstack.length - 1];
+      ctx.fillStyle = C.rec; ctx.fillRect(cellX(h) + W * .18, cellY(h) + W * .18, W * .64, W * .64);
+      ctx.restore();
+    }
+
+    if (this.visits && this.mode !== 'attract') {
+      for (let c = 0; c < N * N; c++) {
+        const v = this.visits[c]; if (!v) continue;
+        const x = cellX(c), y = cellY(c);
+        if (v === 1) { ctx.fillStyle = this.dither; ctx.fillRect(x, y, W, W); }
+        else { ctx.fillStyle = C.player; ctx.fillRect(x, y, W, W); }
+      }
+    }
+
+    if (this.mode === 'won' && this.winPath) {
+      if (this.winFrame <= 3) { ctx.save(); ctx.globalAlpha = .32; ctx.fillStyle = C.goal; ctx.fillRect(0, 0, this.SIZE, this.SIZE); ctx.restore(); }
+      ctx.save(); ctx.shadowColor = C.player; ctx.shadowBlur = 12;
+      ctx.strokeStyle = C.player; ctx.lineWidth = Math.max(4, W * 0.36); ctx.lineCap = 'square'; ctx.lineJoin = 'miter';
+      ctx.beginPath();
+      const n = Math.min(this.sweep, this.winPath.length);
+      for (let i = 0; i < n; i++) {
+        const c = this.winPath[i], x = cellX(c) + W / 2, y = cellY(c) + W / 2;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke(); ctx.restore();
+    }
+
+    if (this.goal != null && !this.carving) {
+      const x = cellX(this.goal), y = cellY(this.goal);
+      ctx.save(); ctx.shadowColor = C.goal; ctx.shadowBlur = 12;
+      ctx.fillStyle = C.screen; ctx.fillRect(x, y, W, W);
+      ctx.strokeStyle = C.goal; ctx.lineWidth = 3; ctx.strokeRect(x + 2, y + 2, W - 4, W - 4);
+      if (this.frame % 12 < 7) { ctx.fillStyle = C.goal; ctx.fillRect(x + W * .34, y + W * .34, W * .32, W * .32); }
+      ctx.restore();
+    }
+
+    if (this.mode !== 'attract' && this.pos != null && !this.carving) {
+      const x = cellX(this.pos), y = cellY(this.pos);
+      ctx.fillStyle = C.screen; ctx.fillRect(x, y, W, W);
+      const px = Math.max(2, Math.floor(W * 0.75 / 8));
+      const s = px * 8, ox = x + Math.floor((W - s) / 2), oy = y + Math.floor((W - s) / 2);
+      const moving = this.frame - this.lastMoveFrame < 6;
+      const rows = this.SPRITE[moving && Math.floor(this.frame / 6) % 2 ? 1 : 0];
+      ctx.save(); ctx.shadowColor = C.player; ctx.shadowBlur = 12; ctx.fillStyle = C.player;
+      for (let j = 0; j < 8; j++) for (let i = 0; i < 8; i++) if (rows[j][i] === '#') ctx.fillRect(ox + i * px, oy + j * px, px, px);
+      ctx.restore();
+    }
+
+    if (this.flash && this.frame <= this.flash.until) {
+      const x = cellX(this.flash.c), y = cellY(this.flash.c);
+      ctx.save(); ctx.fillStyle = C.rec; ctx.font = "10px 'Press Start 2P', monospace"; ctx.textAlign = 'center';
+      ctx.fillText(this.flash.text, Math.min(this.SIZE - 30, Math.max(30, x + W / 2)), Math.max(14, y - 6));
+      ctx.restore();
+    }
+
+    if (this.carving && this.stack.length) {
+      const h = this.stack[this.stack.length - 1];
+      ctx.save(); ctx.shadowColor = C.rec; ctx.shadowBlur = 10; ctx.fillStyle = C.rec;
+      ctx.fillRect(cellX(h) + W * .2, cellY(h) + W * .2, W * .6, W * .6);
+      ctx.restore();
+    }
+  }
+
+  renderVals() {
+    return Object.assign({}, this.state, {
+      canvasRef: this.canvasRef, stageRef: this.stageRef, grainRef: this.grainRef,
+      onPointerDown: this.onPointerDown, onPointerMove: this.onPointerMove, onPointerUp: this.onPointerUp,
+      moveUp: this.moveUp, moveDown: this.moveDown, moveLeft: this.moveLeft, moveRight: this.moveRight,
+      onSolve: this.onSolve, submitInitials: this.submitInitials,
+      up0: this.up0, down0: this.down0, up1: this.up1, down1: this.down1, up2: this.up2, down2: this.down2
+    });
+  }
+}
+</script>
+
+
+</body></html>
