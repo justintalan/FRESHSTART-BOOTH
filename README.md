@@ -1,61 +1,165 @@
-# ITeC FreshStart — Booth Game
+# RECURSE — ITeC FreshStart booth game
 
-A walk-up booth web app for the ITeC FreshStart plaza booth. An attract/home
-screen launches any of **six self-contained mini-games**, each understandable in
-one glance and finished in under a minute. Scored games save to a **local daily
-leaderboard**; the app auto-returns to the attract screen after 30s idle.
+A single-screen arcade cabinet for the ITeC FreshStart plaza booth. A braided
+maze carves itself in with recursive backtracking; you solve it by touch or
+WASD, scored against the BFS shortest path. A `SOLVE IT` button runs depth-first
+search and forfeits your run — the recursion the game is named for, shown
+eating its own dead ends.
 
-Client-only. No backend, no database, no auth, no analytics. Deploys to Vercel
-with zero config.
+Everyone at the booth gets the **same maze each day**, so scores compare. The
+board resets at midnight.
+
+Client-only. No backend, no database, no auth, no analytics, no network calls.
+Deploys to Vercel with zero config.
 
 ## Stack
 
 - Next.js 16 (App Router) + React 19 + TypeScript
-- Tailwind CSS v4 (CSS-first `@theme` tokens in `src/app/globals.css`)
-- Fonts: Space Grotesk (display) + JetBrains Mono (mono), via `next/font/google`
-- State: local React state per game. Leaderboards in `localStorage`.
+- Tailwind CSS v4, CSS-first `@theme` tokens in `src/app/globals.css`
+- Fonts: Press Start 2P (display) + IBM Plex Mono (long lines), via
+  `next/font/google`
+- Rendering: one `<canvas>`, 616 logical px backed at 2x, `image-rendering:
+  pixelated`
+- State: a plain TypeScript class in a ref, **not** React state. React
+  re-renders only for HUD text.
 
-## The six games
+Design source of truth: `design-reference/RECURSE-approved.dc.html`. Palette,
+geometry, timings, scoring coefficients and draw order all come from there.
 
-| Game | Route | Scored | What it is |
-| --- | --- | --- | --- |
-| Path Sorter + Debug Sprint | `/play/path-sorter` | ✓ | 4 taps → IT path, then a 20s bug-tapping sprint |
-| Terminal Reveal | `/play/terminal-reveal` | — | Fake terminal assigns you an IT role |
-| Debug Sprint Arcade | `/play/debug-arcade` | ✓ | 30s reflex — tap bugs on a 6-col grid |
-| This or That | `/play/this-or-that` | — | 6 preference swipes → a dev-vibe result |
-| Build Your Setup | `/play/build-setup` | — | Pick desk gadgets → your IT path |
-| Spot the Phish | `/play/spot-phish` | ✓ | 3 rounds — tap the scam before the timer |
-
-## Architecture
-
-- **Routing:** `/` is the attract menu; each game lives at `/play/[game]`. The
-  `[game]` page is a server component that validates the id and calls
-  `notFound()` for anything unknown; `src/app/not-found.tsx` redirects to `/`.
-- **Shared design system:** `src/components/` holds the reusable primitives
-  (`GameShell`, `Stage`, `Hud`, `Leaderboard`, `NameEntry`, `PathReveal`,
-  `EndActions`, `Bits`). The 1280×800 booth canvas is scaled to fit any viewport
-  by `Stage`.
-- **Leaderboard:** `src/lib/leaderboard.ts` reads/writes `localStorage` under
-  `itec:<gameId>:<YYYY-MM-DD>` — top 10, sorted desc. The date key makes the
-  board reset each calendar day, per booth machine.
-- **Idle reset:** `useIdleReset` (armed by every `GameShell`) returns to `/`
-  after 30s of no input.
-- **Design source of truth:** the original static mockups live in
-  `design-reference/`. Colors, type, and layout match them; do not redesign.
-
-## Run locally
+## Run it
 
 ```bash
 npm install
 npm run dev      # http://localhost:3000
-npm run build    # production build + type check
-npm start        # serve the production build
+npm run build    # TypeScript + production build
+npm run lint     # ESLint (Next 16 removed `next lint`; `next build` no
+                 # longer lints, so this is a separate gate)
 ```
 
-Target device: landscape desktop / booth monitor (~1280×800). Big touch targets.
-Phones are not a target.
+Single route: `/`. Anything else redirects there via `not-found.tsx`.
 
-## Deploy to Vercel
+Landscape desktop and booth monitor only (1280x800, scaled to fit). Phones are
+not a target — the stage scales, it does not reflow.
 
-Push to GitHub and import the repo at [vercel.com/new](https://vercel.com/new)
-— no environment variables, no configuration. Vercel auto-detects Next.js.
+## File map
+
+```
+src/
+  app/
+    fonts.ts        both next/font loaders, shared by layout and page
+    globals.css     @theme palette tokens, button states, no light mode
+    layout.tsx      font variables, cabinet background, <title>
+    page.tsx        the only route: rAF loop, HUD state, input wiring, layout
+    not-found.tsx   redirects to /
+  components/
+    Stage.tsx       fixed 1280x800 cabinet, scaled by min(w/1310, h/830)
+    Logo.tsx        ITeC mark, masked from /itec-logo.png
+  game/             framework-free: no React, no DOM (except render/grain)
+    config.ts       every tunable in one place
+    types.ts        Mode, HudState, BoardEntry, BoardPort
+    rng.ts          mulberry32 + FNV-1a
+    maze.ts         carve / braid / analyze / shortest
+    scoring.ts      coefficients, score(), isEligible()
+    solver.ts       iterative DFS with a ghost trail
+    engine.ts       the state machine
+    render.ts       draw(ctx, engine)
+    grain.ts        CRT grain data URL
+  lib/
+    leaderboard.ts  localStorage daily board
+```
+
+`src/game/` avoids `enum`, constructor parameter properties and decorators, so
+the modules run directly under Node's TypeScript type-stripping for testing.
+
+## The maze
+
+Generated by **iterative recursive backtracking** over a `Uint8Array` of wall
+bitmasks (`1=N 2=E 4=S 8=W`). The carve is stepwise so it can be animated: 26
+steps per logic frame in attract, 36 in play. A 16x16 maze is ~512 steps, so
+roughly 1.6s and 1.2s respectively.
+
+A perfect maze has exactly one route between any two cells, which makes for a
+dull game. So after carving, **braiding** runs: every cell with exactly one open
+side has a 45% chance of one randomly chosen closed interior wall being knocked
+out. This only ever *removes* walls, so the maze stays fully connected while
+gaining loops — typically ~37 junctions on a 16x16.
+
+`analyze()` then BFSes from the start to fill two arrays: `band` (quartile of
+distance, which colours the walls in four depth shades) and `marks` (junctions
+get a cyan dot, dead ends a violet cross).
+
+`par` is the true BFS shortest path, computed **after** braiding.
+
+## Scoring
+
+```
+score = clamp(0, 999999,
+    pool                                  // 100000
+  - max(0, steps - par) * 500
+  - revisits            * 1200
+  - floor(elapsedSeconds) * 120
+  - wallHits            * 900
+)
+```
+
+Coefficients live in `src/game/scoring.ts` as named constants.
+
+A run reaches the leaderboard only if `!usedSolve && steps <= par + 10`. Press
+`SOLVE IT` and you are out, however fast you were.
+
+The displayed score eases toward the target by a fifth of the gap per frame, so
+penalties read as a visible drop rather than a jump.
+
+## Daily seed
+
+```
+seed = fnv1a('recurse-' + YYYYMMDD + '-' + gridSize)
+```
+
+Fed to a mulberry32 PRNG. `Math.random()` is never used for generation — two
+loads on the same calendar day produce byte-identical mazes, different days
+differ. Attract-mode demo mazes *are* random, since nobody scores them.
+
+Set `SEED_MODE = 'random'` in `src/game/config.ts` for testing.
+
+## Leaderboard
+
+`localStorage`, key `recurse.board.<YYYYMMDD>`, entries of
+`{ name, score, steps, at }`, sorted descending, capped at ten. A new calendar
+day starts an empty board; old days are simply never read.
+
+Every access is wrapped in try/catch, so a blocked or full `localStorage`
+degrades to an empty board instead of throwing.
+
+The engine never touches storage directly — it receives a `BoardPort`
+(`{ load, save }`) so the state machine stays testable outside a browser.
+
+## Frame timing
+
+`requestAnimationFrame` drives an accumulator that steps logic at exactly
+`1000/12` ms. Rendering happens every rAF; logic never does. Two guards keep a
+backgrounded tab from unwinding a huge backlog on return: the per-frame delta is
+clamped to 250ms, and at most 4 logic steps run per frame.
+
+Measured in headless Chrome: 24 logic frames per 2000ms (12.0 fps), and 13
+frames in the second following a 9-second main-thread stall.
+
+There are no CSS transitions, no easing curves and no `setInterval` anywhere.
+Blinks and colour cycles are driven off the frame counter, so all motion shares
+one clock.
+
+## Accessibility and input
+
+- Touch: drag anywhere on the maze to steer, or use the on-screen D-pad.
+- Keyboard: WASD or arrows; space/enter on the win screen; enter submits
+  initials.
+- `prefers-reduced-motion: reduce` finishes the carve instantly and runs the
+  solver in bulk chunks rather than animating.
+- Buttons have exactly two states, idle and pressed. **No hover states** — a
+  touchscreen has none, and a faked one reads wrong under a finger.
+- 30 seconds without input from any mode returns to attract.
+
+## Deploying
+
+Vercel, zero config. `npm run build` is all CI needs; the whole app prerenders
+to static output. Nothing reads an environment variable and nothing calls out.
