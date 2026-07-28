@@ -210,6 +210,10 @@ export default function Page() {
           borderBottom: "2px solid var(--color-band-1)",
         }}
       >
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <Logo size={56} className="text-bone rc-logo" />
+          <span style={label(10, { letterSpacing: 1 })}>MADE BY</span>
+        </div>
         <span style={label()}>ITEC FRESHSTART</span>
         <span style={label()}>{hud.seedStr}</span>
       </div>
@@ -609,9 +613,7 @@ export default function Page() {
           borderTop: "2px solid var(--color-band-1)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Logo size={48} className="text-bone rc-logo" />
-          <span style={label(10, { letterSpacing: 1 })}>MADE BY</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <button
             className="rc-btn rc-btn--solve"
             onClick={() => engineRef.current?.solve()}
