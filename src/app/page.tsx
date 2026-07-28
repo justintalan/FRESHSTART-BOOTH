@@ -210,10 +210,6 @@ export default function Page() {
           borderBottom: "2px solid var(--color-band-1)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Logo size={56} className="text-bone rc-logo" />
-          <span style={label(10, { letterSpacing: 1 })}>MADE BY</span>
-        </div>
         <span style={label()}>ITEC FRESHSTART</span>
         <span style={label()}>{hud.seedStr}</span>
       </div>
@@ -294,6 +290,17 @@ export default function Page() {
                 </div>
               </div>
             </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                marginTop: 26,
+              }}
+            >
+              <Logo size={56} className="text-bone rc-logo" />
+              <span style={label(10, { letterSpacing: 1 })}>MADE BY</span>
+            </div>
           </div>
           <div>
             <div style={{ ...rule, marginBottom: 16 }} />
@@ -341,7 +348,7 @@ export default function Page() {
                     color: TONE[hud.coinTone],
                   }}
                 >
-                  INSERT COIN
+                  LEFT CLICK TO PLAY
                 </span>
               </div>
               <div
