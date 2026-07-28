@@ -298,8 +298,8 @@ export default function Page() {
                 marginTop: 26,
               }}
             >
-              <Logo size={56} className="text-bone rc-logo" />
-              <span style={label(10, { letterSpacing: 1 })}>MADE BY</span>
+              <span style={label(13, { letterSpacing: 1 })}>MADE BY</span>
+              <Logo size={76} className="text-bone rc-logo" />
             </div>
           </div>
           <div>
