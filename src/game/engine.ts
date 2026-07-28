@@ -68,6 +68,9 @@ export class RecurseEngine {
   usedSolve = false;
   /** Per-cell entry count, capped at 9. 1 renders dithered, 2+ solid. */
   visits: Uint16Array;
+  /** Every cell entered this run, in order, backtracks and all — the actual
+   *  route walked, as opposed to the BFS shortest path. Feeds the win sweep. */
+  path: number[] = [0];
 
   /** Cells the solver abandoned. Rendered as ghost hatching. */
   ghosts = new Set<number>();
@@ -183,6 +186,7 @@ export class RecurseEngine {
     this.goal = N * N - 1;
     this.pos = 0;
     this.visits[0] = 1;
+    this.path = [0];
     this.steps = 0;
     this.hits = 0;
     this.revisits = 0;
@@ -265,7 +269,7 @@ export class RecurseEngine {
     this.winFrame = 0;
     this.finalScore = this.target;
     this.sweep = 0;
-    this.winPath = this.maze.shortest(this.start, this.goal as number);
+    this.winPath = this.path;
     this.disp = 0;
     this.push({ statusLine: "STAGE CLEAR" });
   }
@@ -360,6 +364,7 @@ export class RecurseEngine {
 
     if (this.t0 === null) this.t0 = Date.now();
     this.pos = ny * N + nx;
+    this.path.push(this.pos);
     this.steps++;
     this.lastMoveFrame = this.frame;
     if (this.visits[this.pos] >= 1) {
